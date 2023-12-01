@@ -19,6 +19,7 @@ pub fn part1(input: &str) -> u32 {
 }
 
 const NAMED_DIGITS: &[(&str, u32)] = &[
+    ("zero", 0),
     ("one", 1),
     ("two", 2),
     ("three", 3),
@@ -28,7 +29,6 @@ const NAMED_DIGITS: &[(&str, u32)] = &[
     ("seven", 7),
     ("eight", 8),
     ("nine", 9),
-    ("ten", 10),
 ];
 
 fn find_digit(s: &str, mut range: impl Iterator<Item = usize>) -> Option<u32> {
