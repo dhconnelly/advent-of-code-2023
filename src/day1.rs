@@ -1,4 +1,24 @@
-const DIGITS: &[(&str, u32)] = &[
+pub fn sum_calibration_values(
+    input: &str,
+    find_first: impl Fn(&str) -> u32,
+    find_last: impl Fn(&str) -> u32,
+) -> u32 {
+    input.lines().map(|line| find_first(line) * 10 + find_last(line)).sum()
+}
+
+fn find_ascii_digit(mut it: impl Iterator<Item = char>) -> Option<u32> {
+    it.find_map(|ch| ch.to_digit(10))
+}
+
+pub fn part1(input: &str) -> u32 {
+    sum_calibration_values(
+        input,
+        |line| find_ascii_digit(line.chars()).unwrap(),
+        |line| find_ascii_digit(line.chars().rev()).unwrap(),
+    )
+}
+
+const NAMED_DIGITS: &[(&str, u32)] = &[
     ("one", 1),
     ("two", 2),
     ("three", 3),
@@ -11,66 +31,27 @@ const DIGITS: &[(&str, u32)] = &[
     ("ten", 10),
 ];
 
-pub fn sum_calibration_values(
-    input: &str,
-    find_first: impl Fn(&str) -> Option<u32>,
-    find_last: impl Fn(&str) -> Option<u32>,
-) -> u32 {
-    input
-        .lines()
-        .map(|line| {
-            let a = find_first(line).unwrap();
-            let b = find_last(line).unwrap();
-            a * 10 + b
+fn find_digit(s: &str, mut range: impl Iterator<Item = usize>) -> Option<u32> {
+    let b = s.as_bytes();
+    let ascii_digit_at = |i| (b[i] as char).to_digit(10);
+    let named_digit_at = |i| {
+        NAMED_DIGITS.iter().find_map(|(name, digit)| {
+            if name.chars().eq(s.chars().skip(i).take(name.len())) {
+                Some(*digit)
+            } else {
+                None
+            }
         })
-        .sum()
-}
-
-fn find_ascii_digit(mut it: impl Iterator<Item = char>) -> Option<u32> {
-    it.find_map(|ch| ch.to_digit(10))
-}
-
-pub fn part1(input: &str) -> u32 {
-    sum_calibration_values(
-        input,
-        |line| find_ascii_digit(line.chars()),
-        |line| find_ascii_digit(line.chars().rev()),
-    )
-}
-
-fn find_first_digit(s: &str) -> Option<u32> {
-    for i in 0..s.len() {
-        let val = s.as_bytes()[i] as char;
-        if val.is_ascii_digit() {
-            return val.to_digit(10);
-        }
-        for (name, digit) in DIGITS {
-            if &s[i..].find(name) == &Some(0usize) {
-                return Some(*digit);
-            }
-        }
-    }
-    None
-}
-
-fn find_last_digit(s: &str) -> Option<u32> {
-    for i in 0..s.len() {
-        let i = s.len() - i - 1;
-        let val = s.as_bytes()[i] as char;
-        if val.is_ascii_digit() {
-            return val.to_digit(10);
-        }
-        for (name, digit) in DIGITS {
-            if i + 1 >= name.len() && &s[..i + 1].rfind(name) == &Some(i + 1 - name.len()) {
-                return Some(*digit);
-            }
-        }
-    }
-    None
+    };
+    range.find_map(|i| ascii_digit_at(i).or_else(|| named_digit_at(i)))
 }
 
 pub fn part2(input: &str) -> u32 {
-    sum_calibration_values(input, find_first_digit, find_last_digit)
+    sum_calibration_values(
+        input,
+        |s| find_digit(s, 0..s.len()).unwrap(),
+        |s| find_digit(s, (0..s.len()).rev()).unwrap(),
+    )
 }
 
 #[cfg(test)]
