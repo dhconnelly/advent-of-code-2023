@@ -1,5 +1,5 @@
-max_width = 80
-struct_lit_width = 80
-single_line_if_else_max_width = 80
-chain_width = 80
-struct_variant_width = 80
+max_width = 85
+struct_lit_width = 85
+single_line_if_else_max_width = 85
+chain_width = 85
+struct_variant_width = 85
