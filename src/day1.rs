@@ -1,4 +1,4 @@
-pub fn sum_calibration_values(
+fn sum_calibration_values(
     input: &str,
     find_first: impl Fn(&str) -> u32,
     find_last: impl Fn(&str) -> u32,
