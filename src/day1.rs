@@ -6,51 +6,43 @@ fn sum_calibration_values(
     input.lines().map(|line| find_first(line) * 10 + find_last(line)).sum()
 }
 
-fn find_ascii_digit(mut it: impl Iterator<Item = char>) -> Option<u32> {
-    it.find_map(|ch| ch.to_digit(10))
+fn find_ascii_digit(mut line: impl Iterator<Item = char>) -> u32 {
+    line.find_map(|ch| ch.to_digit(10)).unwrap()
 }
 
 pub fn part1(input: &str) -> u32 {
     sum_calibration_values(
         input,
-        |line| find_ascii_digit(line.chars()).unwrap(),
-        |line| find_ascii_digit(line.chars().rev()).unwrap(),
+        |line| find_ascii_digit(line.chars()),
+        |line| find_ascii_digit(line.chars().rev()),
     )
 }
 
-const NAMED_DIGITS: &[(&str, u32)] = &[
-    ("zero", 0),
-    ("one", 1),
-    ("two", 2),
-    ("three", 3),
-    ("four", 4),
-    ("five", 5),
-    ("six", 6),
-    ("seven", 7),
-    ("eight", 8),
-    ("nine", 9),
+const NAMED_DIGITS: [&str; 10] = [
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+    "nine",
 ];
 
-fn find_digit(s: &str, mut range: impl Iterator<Item = usize>) -> Option<u32> {
-    let b = s.as_bytes();
-    let ascii_digit_at = |i| (b[i] as char).to_digit(10);
-    let named_digit_at = |i| {
-        NAMED_DIGITS.iter().find_map(|(name, digit)| {
-            if name.chars().eq(s.chars().skip(i).take(name.len())) {
-                Some(*digit)
-            } else {
-                None
+fn find_digit(line: &str, range: impl Iterator<Item = usize>) -> u32 {
+    for i in range {
+        if let Some(digit) = (line.as_bytes()[i] as char).to_digit(10) {
+            return digit;
+        }
+        for (digit, name) in NAMED_DIGITS.iter().enumerate() {
+            let candidate = &line[i..line.len().min(i + name.len())];
+            if candidate == *name {
+                return digit as u32;
             }
-        })
-    };
-    range.find_map(|i| ascii_digit_at(i).or_else(|| named_digit_at(i)))
+        }
+    }
+    unreachable!();
 }
 
 pub fn part2(input: &str) -> u32 {
     sum_calibration_values(
         input,
-        |s| find_digit(s, 0..s.len()).unwrap(),
-        |s| find_digit(s, (0..s.len()).rev()).unwrap(),
+        |line| find_digit(line, 0..line.len()),
+        |line| find_digit(line, (0..line.len()).rev()),
     )
 }
 
