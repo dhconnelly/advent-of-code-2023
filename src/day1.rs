@@ -1,9 +1,9 @@
-fn sum_calibration_values(
+fn calibration_sum(
     input: &str,
-    find_first: impl Fn(&str) -> u32,
-    find_last: impl Fn(&str) -> u32,
+    first: impl Fn(&str) -> u32,
+    last: impl Fn(&str) -> u32,
 ) -> u32 {
-    input.lines().map(|line| find_first(line) * 10 + find_last(line)).sum()
+    input.lines().map(|line| first(line) * 10 + last(line)).sum()
 }
 
 fn find_ascii_digit(mut line: impl Iterator<Item = char>) -> u32 {
@@ -11,14 +11,14 @@ fn find_ascii_digit(mut line: impl Iterator<Item = char>) -> u32 {
 }
 
 pub fn part1(input: &str) -> u32 {
-    sum_calibration_values(
+    calibration_sum(
         input,
         |line| find_ascii_digit(line.chars()),
         |line| find_ascii_digit(line.chars().rev()),
     )
 }
 
-const NAMED_DIGITS: [&str; 10] = [
+const DIGIT_NAMES: [&str; 10] = [
     "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
     "nine",
 ];
@@ -28,18 +28,18 @@ fn find_digit(line: &str, range: impl Iterator<Item = usize>) -> u32 {
         if let Some(digit) = (line.as_bytes()[i] as char).to_digit(10) {
             return digit;
         }
-        for (digit, name) in NAMED_DIGITS.iter().enumerate() {
-            let candidate = &line[i..line.len().min(i + name.len())];
-            if candidate == *name {
+        for (digit, name) in DIGIT_NAMES.iter().enumerate() {
+            let j = line.len().min(i + name.len());
+            if *name == &line[i..j] {
                 return digit as u32;
             }
         }
     }
-    unreachable!();
+    panic!("digit not found");
 }
 
 pub fn part2(input: &str) -> u32 {
-    sum_calibration_values(
+    calibration_sum(
         input,
         |line| find_digit(line, 0..line.len()),
         |line| find_digit(line, (0..line.len()).rev()),
