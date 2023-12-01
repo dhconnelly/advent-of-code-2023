@@ -7,3 +7,8 @@ in rust with `#![no_std]`
 to run the solution for day N on the input `inputs/dayN.txt`:
 
     cargo run --bin dayN inputs/dayN.txt
+
+or:
+
+    cargo build --release
+    ./target/release/dayN inputs/dayN.txt
