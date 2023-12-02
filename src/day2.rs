@@ -66,15 +66,27 @@ impl Parser {
     }
 }
 
-pub fn part1(input: &str) -> i64 {
+fn can_fit(into: &Outcome, from: &Outcome) -> bool {
+    from.r <= into.r && from.g <= into.g && from.b <= into.b
+}
+
+pub fn part1(input: &str) -> usize {
     let want = Outcome::new(12, 13, 14);
     let p = Parser::new();
+    let mut sum = 0;
     for (id, outcomes) in input.lines().map(|line| p.parse(line)) {
+        let mut ok = true;
         for outcome in outcomes {
-        println!("{} {:?}", id, outcome);
+            if !can_fit(&want, &outcome) {
+                ok = false;
+                break;
+            }
+        }
+        if ok {
+            sum += id;
         }
     }
-    0
+    sum
 }
 
 #[cfg(test)]
