@@ -52,7 +52,7 @@ fn can_fit(into: &Outcome, from: &Outcome) -> bool {
     from.0 <= into.0 && from.1 <= into.1 && from.2 <= into.2
 }
 
-fn part1(input: &str) -> usize {
+pub fn part1(input: &str) -> usize {
     let available = Outcome(12, 13, 14);
     let parser = Parser::new();
     let all_games = input.lines().map(|line| parser.parse(line));
@@ -76,15 +76,11 @@ fn power(outcomes: impl Iterator<Item = Outcome>) -> i64 {
     min.0 * min.1 * min.2
 }
 
-fn part2(input: &str) -> i64 {
+pub fn part2(input: &str) -> i64 {
     let parser = Parser::new();
     let all_games = input.lines().map(|line| parser.parse(line));
     let powers = all_games.map(|(_, outcomes)| power(outcomes));
     powers.sum()
-}
-
-pub fn run(input: &str) -> (usize, i64) {
-    (part1(input), part2(input))
 }
 
 #[cfg(test)]

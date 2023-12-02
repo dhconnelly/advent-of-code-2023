@@ -1,6 +1,5 @@
 use advent_of_code_2023::{day1, day2};
 use std::fmt::Display;
-use std::io;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -10,7 +9,7 @@ enum Error {
     #[error("unknown day: {0}")]
     UnknownDay(String),
     #[error("{0}")]
-    IO(#[from] io::Error),
+    IO(#[from] std::io::Error),
 }
 
 fn die(err: impl Into<Error>) -> ! {
@@ -18,9 +17,27 @@ fn die(err: impl Into<Error>) -> ! {
     std::process::exit(1);
 }
 
-fn output<T: Display, U: Display>((part1, part2): (T, U)) {
-    println!("{}", part1);
-    println!("{}", part2);
+trait Solver: Send + Sync + 'static {
+    fn solve(&self, input: &str);
+}
+
+impl<T: Display, F: Fn(&str) -> T + Send + Sync + 'static> Solver for F {
+    fn solve(&self, input: &str) {
+        println!("{}", self(input));
+    }
+}
+
+fn solve(day: &str, input: &str) {
+    let solns: [(&str, Box<dyn Solver>, Box<dyn Solver>); 2] = [
+        ("day1", Box::new(day1::part1), Box::new(day1::part2)),
+        ("day2", Box::new(day2::part1), Box::new(day2::part2)),
+    ];
+    let soln = solns
+        .iter()
+        .find(|soln| soln.0 == day)
+        .unwrap_or_else(|| die(Error::UnknownDay(day.to_string())));
+    soln.1.solve(input);
+    soln.2.solve(input);
 }
 
 fn main() {
@@ -28,9 +45,5 @@ fn main() {
     let day = args.next().unwrap_or_else(|| die(Error::Usage));
     let path = args.next().unwrap_or_else(|| die(Error::Usage));
     let input = std::fs::read_to_string(&path).unwrap_or_else(|err| die(err));
-    match day.as_str() {
-        "day1" => output(day1::run(&input)),
-        "day2" => output(day2::run(&input)),
-        day => die(Error::UnknownDay(day.to_string())),
-    }
+    solve(&day, &input);
 }
