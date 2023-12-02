@@ -53,8 +53,8 @@ fn can_fit(into: &Outcome, from: &Outcome) -> bool {
 }
 
 pub fn part1(input: &str) -> usize {
-    let parser = Parser::new();
     let available = Outcome(12, 13, 14);
+    let parser = Parser::new();
     let all_games = input.lines().map(|line| parser.parse(line));
     let possible_games = all_games.flat_map(|(id, mut outcomes)| {
         if outcomes.all(|outcome| can_fit(&available, &outcome)) {
@@ -77,8 +77,8 @@ fn power(outcomes: impl Iterator<Item = Outcome>) -> i64 {
 }
 
 pub fn part2(input: &str) -> i64 {
-    let p = Parser::new();
-    let all_games = input.lines().map(|line| p.parse(line));
+    let parser = Parser::new();
+    let all_games = input.lines().map(|line| parser.parse(line));
     let powers = all_games.map(|(_, outcomes)| power(outcomes));
     powers.sum()
 }
