@@ -17,11 +17,11 @@ fn die(err: impl Into<Error>) -> ! {
     std::process::exit(1);
 }
 
-trait Solver: Send + Sync + 'static {
+trait Solver {
     fn solve(&self, input: &str);
 }
 
-impl<T: Display, F: Fn(&str) -> T + Send + Sync + 'static> Solver for F {
+impl<T: Display, F: Fn(&str) -> T> Solver for F {
     fn solve(&self, input: &str) {
         println!("{}", self(input));
     }
