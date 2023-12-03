@@ -1,4 +1,4 @@
-use advent_of_code_2023::{day1, day2};
+use advent_of_code_2023::{day1, day2, day3};
 use std::fmt::Display;
 use thiserror::Error;
 
@@ -21,16 +21,17 @@ trait Solver {
     fn solve(&self, input: &str);
 }
 
-impl<T: Display, F: Fn(&str) -> T> Solver for F {
+impl<T: Display + 'static, F: Fn(&str) -> T> Solver for F {
     fn solve(&self, input: &str) {
         println!("{}", self(input));
     }
 }
 
 fn solve(day: &str, input: &str) {
-    let solns: [(&str, Box<dyn Solver>, Box<dyn Solver>); 2] = [
+    let solns: &[(&str, Box<dyn Solver>, Box<dyn Solver>)] = &[
         ("day1", Box::new(day1::part1), Box::new(day1::part2)),
         ("day2", Box::new(day2::part1), Box::new(day2::part2)),
+        ("day3", Box::new(day3::part1), Box::new(day3::part2)),
     ];
     let soln = solns
         .iter()
