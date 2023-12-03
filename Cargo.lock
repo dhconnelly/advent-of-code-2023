@@ -6,6 +6,7 @@ version = 3
 name = "advent-of-code-2023"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "libc-print",
  "regex",
  "thiserror",
@@ -19,6 +20,12 @@ checksum = "b2969dcb958b36655471fc61f7e416fa76033bdd4bfed0678d8fee1e2d07a1f0"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "lazy_static"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"

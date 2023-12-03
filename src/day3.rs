@@ -1,5 +1,10 @@
 use core::{iter::Iterator, str::Lines};
-use regex::{CaptureMatches, Regex};
+use regex::{CaptureMatches, Match, Regex};
+
+lazy_static! {
+    static ref NUM_RE: Regex = Regex::new(r"\d+").unwrap();
+    static ref SYM_RE: Regex = Regex::new(r"[^.\d]").unwrap();
+}
 
 // Iterator for (above, cur, below) line windows
 
@@ -72,44 +77,30 @@ impl<'a, 'b> Iterator for Adjacent<'a, 'b> {
     }
 }
 
-// part 1
-
-fn line_symbol_sum(num: &Regex, sym: &Regex, window: LineWindow) -> i64 {
-    let mut sum = 0;
-    for cap in num.captures_iter(window.1).map(|cap| cap.get(0).unwrap()) {
-        if find_adjacent(sym, window, (cap.start(), cap.end())).next().is_some() {
-            sum += cap.as_str().parse::<i64>().unwrap();
-        }
-    }
-    sum
-}
-
 pub fn part1(input: &str) -> i64 {
-    let num = Regex::new(r"\d+").unwrap();
-    let sym = Regex::new(r"[^.\d]").unwrap();
-    input.lines().windows().map(|w| line_symbol_sum(&num, &sym, w)).sum()
-}
-
-// part 2
-
-fn line_gear_sum(pat: &Regex, window: LineWindow) -> i64 {
-    let mut sum = 0;
-    for (i, _) in window.1.chars().enumerate().filter(|(_, ch)| *ch == '*') {
-        let (mut count, mut ratio) = (0, 1);
-        for cap in find_adjacent(pat, window, (i, i + 1)) {
-            ratio *= cap.parse::<i64>().unwrap();
-            count += 1;
-        }
-        if count == 2 {
-            sum += ratio;
-        }
-    }
-    sum
+    let has_adj_sym = |w: LineWindow, cap: &Match| {
+        find_adjacent(&SYM_RE, w, (cap.start(), cap.end())).next().is_some()
+    };
+    let line_sum = |w: LineWindow| -> i64 {
+        let nums = NUM_RE.captures_iter(w.1).map(|cap| cap.get(0).unwrap());
+        let nums_touching_sym = nums.filter(|cap| has_adj_sym(w, cap));
+        nums_touching_sym.map(|cap| cap.as_str().parse::<i64>().unwrap()).sum()
+    };
+    input.lines().windows().map(line_sum).sum()
 }
 
 pub fn part2(input: &str) -> i64 {
-    let pat = Regex::new(r"\d+").unwrap();
-    input.lines().windows().map(|w| line_gear_sum(&pat, w)).sum()
+    let gear_ratio = |adj: Adjacent| -> Option<i64> {
+        let mut nums = adj.map(|cap| cap.parse::<i64>().unwrap());
+        let ratio = [nums.next()?, nums.next()?].into_iter().product();
+        nums.next().xor(Some(ratio))
+    };
+    let line_sum = |w: LineWindow| -> i64 {
+        let star_pos = w.1.chars().enumerate().filter(|p| p.1 == '*').map(|p| p.0);
+        let ratio_at = |i: usize| gear_ratio(find_adjacent(&NUM_RE, w, (i, i + 1)));
+        star_pos.flat_map(ratio_at).sum()
+    };
+    input.lines().windows().map(line_sum).sum()
 }
 
 #[cfg(test)]
