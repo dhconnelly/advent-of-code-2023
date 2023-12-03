@@ -24,15 +24,10 @@ impl<'a> Iterator for Windows<'a> {
     }
 }
 
-trait Windowable<'a> {
-    fn windows(self) -> Windows<'a>;
-}
-
-impl<'a> Windowable<'a> for Lines<'a> {
-    fn windows(mut self) -> Windows<'a> {
-        let buf = [None, self.next()];
-        Windows { lines: self, buf }
-    }
+fn windows(input: &str) -> Windows {
+    let mut lines = input.lines();
+    let buf = [None, lines.next()];
+    Windows { lines, buf }
 }
 
 // Iterator for matches of a pattern around a given string
@@ -78,29 +73,29 @@ impl<'a, 'b> Iterator for Adjacent<'a, 'b> {
 }
 
 pub fn part1(input: &str) -> i64 {
-    let has_adj_sym = |w: LineWindow, cap: &Match| {
-        find_adjacent(&SYM_RE, w, (cap.start(), cap.end())).next().is_some()
+    let has_adj_sym = |w: LineWindow, around: &Match| {
+        find_adjacent(&SYM_RE, w, (around.start(), around.end())).next().is_some()
     };
-    let line_sum = |w: LineWindow| -> i64 {
+    let window_sum = |w: LineWindow| -> i64 {
         let nums = NUM_RE.captures_iter(w.1).map(|cap| cap.get(0).unwrap());
         let nums_touching_sym = nums.filter(|cap| has_adj_sym(w, cap));
         nums_touching_sym.map(|cap| cap.as_str().parse::<i64>().unwrap()).sum()
     };
-    input.lines().windows().map(line_sum).sum()
+    windows(input).map(window_sum).sum()
 }
 
 pub fn part2(input: &str) -> i64 {
-    let gear_ratio = |adj: Adjacent| -> Option<i64> {
-        let mut nums = adj.map(|cap| cap.parse::<i64>().unwrap());
+    let gear_ratio = |adj_nums: Adjacent| -> Option<i64> {
+        let mut nums = adj_nums.map(|cap| cap.parse::<i64>().unwrap());
         let ratio = [nums.next()?, nums.next()?].into_iter().product();
         nums.next().xor(Some(ratio))
     };
-    let line_sum = |w: LineWindow| -> i64 {
+    let window_sum = |w: LineWindow| -> i64 {
         let star_pos = w.1.chars().enumerate().filter(|p| p.1 == '*').map(|p| p.0);
         let ratio_at = |i: usize| gear_ratio(find_adjacent(&NUM_RE, w, (i, i + 1)));
         star_pos.flat_map(ratio_at).sum()
     };
-    input.lines().windows().map(line_sum).sum()
+    windows(input).map(window_sum).sum()
 }
 
 #[cfg(test)]
