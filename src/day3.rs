@@ -1,5 +1,5 @@
 use core::{iter::Iterator, str::Lines};
-use regex::Regex;
+use regex::{CaptureMatches, Regex};
 
 type LineWindow<'a> = (Option<&'a str>, &'a str, Option<&'a str>);
 
@@ -28,54 +28,68 @@ impl<'a> Windowable<'a> for Lines<'a> {
     }
 }
 
-fn find_adjacent_in_window(
-    pat: &Regex,
-    (above, cur, below): LineWindow,
-    around_range: (usize, usize),
-    mut f: impl FnMut(&str),
-) {
-    for cap in pat.captures_iter(cur).map(|cap| cap.get(0).unwrap()) {
-        let (cap_start, cap_end) = (cap.start(), cap.end());
-        if cap_start == around_range.1 || cap_end == around_range.0 {
-            f(cap.as_str());
-        }
-    }
-    for line in [above, below].into_iter().flatten() {
-        for cap in pat.captures_iter(line).map(|cap| cap.get(0).unwrap()) {
-            let (cap_start, cap_end) = (cap.start(), cap.end());
-            if cap_start <= around_range.1 && cap_end >= around_range.0 {
-                f(cap.as_str());
-            }
-        }
+struct Adjacent<'a, 'b> {
+    cur: CaptureMatches<'a, 'b>,
+    above: Option<CaptureMatches<'a, 'b>>,
+    below: Option<CaptureMatches<'a, 'b>>,
+    range: (usize, usize),
+}
+
+impl<'a, 'b> Adjacent<'a, 'b> {
+    fn new(pat: &'a Regex, w: LineWindow<'b>, range: (usize, usize)) -> Self {
+        let cur = pat.captures_iter(w.1);
+        let above = w.0.map(|above| pat.captures_iter(above));
+        let below = w.2.map(|below| pat.captures_iter(below));
+        Self { cur, above, below, range }
     }
 }
 
-fn line_symbol_sum(num_pat: &Regex, sym_pat: &Regex, window: LineWindow) -> i64 {
+impl<'a, 'b> Iterator for Adjacent<'a, 'b> {
+    type Item = &'b str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for cap in &mut self.cur {
+            let cap = cap.get(0).unwrap();
+            if cap.start() == self.range.1 || cap.end() == self.range.0 {
+                return Some(cap.as_str());
+            }
+        }
+        for caps in [&mut self.above, &mut self.below].into_iter().flatten() {
+            for cap in caps {
+                let cap = cap.get(0).unwrap();
+                if cap.start() <= self.range.1 && cap.end() >= self.range.0 {
+                    return Some(cap.as_str());
+                }
+            }
+        }
+        None
+    }
+}
+
+fn line_symbol_sum(num: &Regex, sym: &Regex, window: LineWindow) -> i64 {
     let mut sum = 0;
-    for num_cap in num_pat.captures_iter(window.1).map(|cap| cap.get(0).unwrap()) {
-        let (start, end) = (num_cap.start(), num_cap.end());
-        find_adjacent_in_window(sym_pat, window, (start, end), |_| {
-            sum += num_cap.as_str().parse::<i64>().unwrap();
-        });
+    for cap in num.captures_iter(window.1).map(|cap| cap.get(0).unwrap()) {
+        if Adjacent::new(sym, window, (cap.start(), cap.end())).next().is_some() {
+            sum += cap.as_str().parse::<i64>().unwrap();
+        }
     }
     sum
 }
 
 pub fn part1(input: &str) -> i64 {
-    let num_pat = Regex::new(r"\d+").unwrap();
-    let sym_pat = Regex::new(r"[^.\d]").unwrap();
-    input.lines().windows().map(|w| line_symbol_sum(&num_pat, &sym_pat, w)).sum()
+    let num = Regex::new(r"\d+").unwrap();
+    let sym = Regex::new(r"[^.\d]").unwrap();
+    input.lines().windows().map(|w| line_symbol_sum(&num, &sym, w)).sum()
 }
 
 fn line_gear_sum(pat: &Regex, window: LineWindow) -> i64 {
-    let (above, cur, below) = window;
     let mut sum = 0;
-    for (i, _) in cur.chars().enumerate().filter(|(_, ch)| *ch == '*') {
+    for (i, _) in window.1.chars().enumerate().filter(|(_, ch)| *ch == '*') {
         let (mut count, mut ratio) = (0, 1);
-        find_adjacent_in_window(pat, (above, cur, below), (i, i + 1), |cap| {
+        for cap in Adjacent::new(pat, window, (i, i + 1)) {
             ratio *= cap.parse::<i64>().unwrap();
             count += 1;
-        });
+        }
         if count == 2 {
             sum += ratio;
         }
