@@ -1,7 +1,33 @@
-use core::iter::Iterator;
+use core::{iter::Iterator, str::Lines};
 use regex::Regex;
 
 type LineWindow<'a> = (Option<&'a str>, &'a str, Option<&'a str>);
+
+struct Windows<'a> {
+    lines: Lines<'a>,
+    buf: [Option<&'a str>; 2],
+}
+
+impl<'a> Windows<'a> {
+    fn new(input: &'a str) -> Windows<'a> {
+        let mut lines = input.lines();
+        let buf = [None, lines.next()];
+        Self { lines, buf }
+    }
+}
+
+impl<'a> Iterator for Windows<'a> {
+    type Item = LineWindow<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let above = self.buf[0].take();
+        let cur = self.buf[1].take()?;
+        let below = self.lines.next();
+        let item = (above, cur, below);
+        self.buf = [Some(cur), below];
+        Some(item)
+    }
+}
 
 fn find_adjacent_in_window(
     pat: &Regex,
@@ -27,33 +53,6 @@ fn find_adjacent_in_window(
     }
 }
 
-fn sum_windows(input: &str, mut f: impl FnMut(LineWindow) -> i64) -> Option<i64> {
-    // process sliding windows (above, cur, below)
-    let mut lines = input.lines();
-
-    // first line
-    let mut above = lines.next()?;
-    let next = lines.next();
-    let mut sum = f((None, above, next));
-
-    // abort if done
-    let mut cur = if let Some(next) = next {
-        next
-    } else {
-        return Some(sum);
-    };
-
-    // middle lines
-    for line in lines {
-        sum += f((Some(above), cur, Some(line)));
-        (above, cur) = (cur, line);
-    }
-
-    // last line
-    sum += f((Some(above), cur, None));
-    Some(sum)
-}
-
 fn line_symbol_sum(num_pat: &Regex, sym_pat: &Regex, window: LineWindow) -> i64 {
     let (_, cur, _) = window;
     let mut sum = 0;
@@ -69,7 +68,9 @@ fn line_symbol_sum(num_pat: &Regex, sym_pat: &Regex, window: LineWindow) -> i64 
 pub fn part1(input: &str) -> i64 {
     let num_pat = Regex::new(r"\d+").unwrap();
     let sym_pat = Regex::new(r"[^.\d]").unwrap();
-    sum_windows(input, |window| line_symbol_sum(&num_pat, &sym_pat, window)).unwrap()
+    Windows::new(input)
+        .map(|window| line_symbol_sum(&num_pat, &sym_pat, window))
+        .sum()
 }
 
 fn line_gear_sum(pat: &Regex, window: LineWindow) -> i64 {
@@ -94,7 +95,7 @@ fn line_gear_sum(pat: &Regex, window: LineWindow) -> i64 {
 
 pub fn part2(input: &str) -> i64 {
     let pat = Regex::new(r"\d+").unwrap();
-    sum_windows(input, |window| line_gear_sum(&pat, window)).unwrap()
+    Windows::new(input).map(|window| line_gear_sum(&pat, window)).sum()
 }
 
 #[cfg(test)]
