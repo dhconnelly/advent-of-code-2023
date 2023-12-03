@@ -1,15 +1,16 @@
 use core::iter::Iterator;
 use regex::Regex;
 
+type LineWindow<'a> = (Option<&'a str>, &'a str, Option<&'a str>);
+
 fn find_adjacent_in_window(
     pat: &Regex,
-    above: Option<&str>,
-    cur: &str,
-    below: Option<&str>,
-    start: usize,
-    end: usize,
+    window: LineWindow,
+    around_range: (usize, usize),
     mut f: impl FnMut(&str),
 ) {
+    let (start, end) = around_range;
+    let (above, cur, below) = window;
     for cap in pat.captures_iter(cur).map(|cap| cap.get(0).unwrap()) {
         let (cap_start, cap_end) = (cap.start(), cap.end());
         if cap_start == end || cap_end == start {
@@ -26,45 +27,39 @@ fn find_adjacent_in_window(
     }
 }
 
-fn process_windows(
-    input: &str,
-    mut f: impl FnMut(Option<&str>, &str, Option<&str>),
-) {
-    // get sliding windows of lines (above, cur, below)
+fn sum_windows(input: &str, mut f: impl FnMut(LineWindow) -> i64) -> Option<i64> {
+    // process sliding windows (above, cur, below)
     let mut lines = input.lines();
-    let mut above = lines.next().unwrap();
 
     // first line
-    let maybe_cur = lines.next();
-    if let Some(line) = maybe_cur {
-        f(None, above, Some(line));
+    let mut above = lines.next()?;
+    let next = lines.next();
+    let mut sum = f((None, above, next));
+
+    // abort if done
+    let mut cur = if let Some(next) = next {
+        next
     } else {
-        return;
-    }
+        return Some(sum);
+    };
 
     // middle lines
-    let mut cur = maybe_cur.unwrap();
     for line in lines {
-        let below = line;
-        f(Some(above), cur, Some(below));
-        (above, cur) = (cur, below);
+        sum += f((Some(above), cur, Some(line)));
+        (above, cur) = (cur, line);
     }
 
     // last line
-    f(Some(above), cur, None);
+    sum += f((Some(above), cur, None));
+    Some(sum)
 }
 
-fn line_sum(
-    num_pat: &Regex,
-    sym_pat: &Regex,
-    above: Option<&str>,
-    cur: &str,
-    below: Option<&str>,
-) -> i64 {
+fn line_sum(num_pat: &Regex, sym_pat: &Regex, window: LineWindow) -> i64 {
+    let (_, cur, _) = window;
     let mut sum = 0;
     for num_cap in num_pat.captures_iter(cur).map(|cap| cap.get(0).unwrap()) {
         let (start, end) = (num_cap.start(), num_cap.end());
-        find_adjacent_in_window(sym_pat, above, cur, below, start, end, |_| {
+        find_adjacent_in_window(sym_pat, window, (start, end), |_| {
             sum += num_cap.as_str().parse::<i64>().unwrap();
         });
     }
@@ -74,24 +69,16 @@ fn line_sum(
 pub fn part1(input: &str) -> i64 {
     let num_pat = Regex::new(r"\d+").unwrap();
     let sym_pat = Regex::new(r"[^.\d]").unwrap();
-    let mut sum = 0;
-    process_windows(input, |above, cur, below| {
-        sum += line_sum(&num_pat, &sym_pat, above, cur, below);
-    });
-    sum
+    sum_windows(input, |window| line_sum(&num_pat, &sym_pat, window)).unwrap()
 }
 
-fn line_gear_ratio(
-    pat: &Regex,
-    above: Option<&str>,
-    cur: &str,
-    below: Option<&str>,
-) -> i64 {
+fn line_gear_ratio(pat: &Regex, window: LineWindow) -> i64 {
+    let (above, cur, below) = window;
     let mut sum = 0;
     for (i, _) in cur.chars().enumerate().filter(|(_, ch)| *ch == '*') {
         let mut count = 0;
         let mut ratio = 1;
-        find_adjacent_in_window(pat, above, cur, below, i, i + 1, |cap| {
+        find_adjacent_in_window(pat, (above, cur, below), (i, i + 1), |cap| {
             if count < 2 {
                 let num: i64 = cap.parse().unwrap();
                 ratio *= num;
@@ -107,11 +94,7 @@ fn line_gear_ratio(
 
 pub fn part2(input: &str) -> i64 {
     let pat = Regex::new(r"\d+").unwrap();
-    let mut sum = 0;
-    process_windows(input, |above, cur, below| {
-        sum += line_gear_ratio(&pat, above, cur, below);
-    });
-    sum
+    sum_windows(input, |window| line_gear_ratio(&pat, window)).unwrap()
 }
 
 #[cfg(test)]
