@@ -54,7 +54,7 @@ fn sum_windows(input: &str, mut f: impl FnMut(LineWindow) -> i64) -> Option<i64>
     Some(sum)
 }
 
-fn line_sum(num_pat: &Regex, sym_pat: &Regex, window: LineWindow) -> i64 {
+fn line_symbol_sum(num_pat: &Regex, sym_pat: &Regex, window: LineWindow) -> i64 {
     let (_, cur, _) = window;
     let mut sum = 0;
     for num_cap in num_pat.captures_iter(cur).map(|cap| cap.get(0).unwrap()) {
@@ -69,10 +69,10 @@ fn line_sum(num_pat: &Regex, sym_pat: &Regex, window: LineWindow) -> i64 {
 pub fn part1(input: &str) -> i64 {
     let num_pat = Regex::new(r"\d+").unwrap();
     let sym_pat = Regex::new(r"[^.\d]").unwrap();
-    sum_windows(input, |window| line_sum(&num_pat, &sym_pat, window)).unwrap()
+    sum_windows(input, |window| line_symbol_sum(&num_pat, &sym_pat, window)).unwrap()
 }
 
-fn line_gear_ratio(pat: &Regex, window: LineWindow) -> i64 {
+fn line_gear_sum(pat: &Regex, window: LineWindow) -> i64 {
     let (above, cur, below) = window;
     let mut sum = 0;
     for (i, _) in cur.chars().enumerate().filter(|(_, ch)| *ch == '*') {
@@ -94,7 +94,7 @@ fn line_gear_ratio(pat: &Regex, window: LineWindow) -> i64 {
 
 pub fn part2(input: &str) -> i64 {
     let pat = Regex::new(r"\d+").unwrap();
-    sum_windows(input, |window| line_gear_ratio(&pat, window)).unwrap()
+    sum_windows(input, |window| line_gear_sum(&pat, window)).unwrap()
 }
 
 #[cfg(test)]
