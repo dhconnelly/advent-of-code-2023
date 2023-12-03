@@ -3,17 +3,20 @@ use regex::Regex;
 
 type LineWindow<'a> = (Option<&'a str>, &'a str, Option<&'a str>);
 
+trait Windowable<'a> {
+    fn windows(self) -> Windows<'a>;
+}
+
+impl<'a> Windowable<'a> for Lines<'a> {
+    fn windows(mut self) -> Windows<'a> {
+        let buf = [None, self.next()];
+        Windows { lines: self, buf }
+    }
+}
+
 struct Windows<'a> {
     lines: Lines<'a>,
     buf: [Option<&'a str>; 2],
-}
-
-impl<'a> Windows<'a> {
-    fn new(input: &'a str) -> Windows<'a> {
-        let mut lines = input.lines();
-        let buf = [None, lines.next()];
-        Self { lines, buf }
-    }
 }
 
 impl<'a> Iterator for Windows<'a> {
@@ -68,7 +71,9 @@ fn line_symbol_sum(num_pat: &Regex, sym_pat: &Regex, window: LineWindow) -> i64 
 pub fn part1(input: &str) -> i64 {
     let num_pat = Regex::new(r"\d+").unwrap();
     let sym_pat = Regex::new(r"[^.\d]").unwrap();
-    Windows::new(input)
+    input
+        .lines()
+        .windows()
         .map(|window| line_symbol_sum(&num_pat, &sym_pat, window))
         .sum()
 }
@@ -95,7 +100,7 @@ fn line_gear_sum(pat: &Regex, window: LineWindow) -> i64 {
 
 pub fn part2(input: &str) -> i64 {
     let pat = Regex::new(r"\d+").unwrap();
-    Windows::new(input).map(|window| line_gear_sum(&pat, window)).sum()
+    input.lines().windows().map(|window| line_gear_sum(&pat, window)).sum()
 }
 
 #[cfg(test)]
