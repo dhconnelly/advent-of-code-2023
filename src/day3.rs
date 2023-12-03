@@ -1,6 +1,8 @@
 use core::{iter::Iterator, str::Lines};
 use regex::{CaptureMatches, Regex};
 
+// Iterator for (above, cur, below) line windows
+
 type LineWindow<'a> = (Option<&'a str>, &'a str, Option<&'a str>);
 
 struct Windows<'a> {
@@ -27,6 +29,8 @@ impl<'a> Windowable<'a> for Lines<'a> {
         Windows { lines: self, buf }
     }
 }
+
+// Iterator for matches of a pattern around a given string
 
 struct Adjacent<'a, 'b> {
     cur: CaptureMatches<'a, 'b>,
@@ -66,6 +70,8 @@ impl<'a, 'b> Iterator for Adjacent<'a, 'b> {
     }
 }
 
+// part 1
+
 fn line_symbol_sum(num: &Regex, sym: &Regex, window: LineWindow) -> i64 {
     let mut sum = 0;
     for cap in num.captures_iter(window.1).map(|cap| cap.get(0).unwrap()) {
@@ -81,6 +87,8 @@ pub fn part1(input: &str) -> i64 {
     let sym = Regex::new(r"[^.\d]").unwrap();
     input.lines().windows().map(|w| line_symbol_sum(&num, &sym, w)).sum()
 }
+
+// part 2
 
 fn line_gear_sum(pat: &Regex, window: LineWindow) -> i64 {
     let mut sum = 0;
