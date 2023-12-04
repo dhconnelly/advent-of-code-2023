@@ -1,5 +1,4 @@
 use core::u128;
-use libc_print::std_name::{dbg, println};
 
 use regex::{Captures, Regex};
 
@@ -45,10 +44,8 @@ pub fn part1(input: &str) -> usize {
 
 pub fn part2(input: &str) -> usize {
     let mut card_counts = [0usize; 256];
-    let mut card_wins = [0usize; 256];
     for (i, wins) in input.lines().map(num_wins) {
         card_counts[i] += 1;
-        card_wins[i] = wins;
         for j in 0..wins {
             card_counts[i + j + 1] += card_counts[i];
         }
