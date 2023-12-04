@@ -8,10 +8,6 @@ to run the solution for day N on the input `inputs/dayN.txt`:
 
     cargo run dayN inputs/dayN.txt
 
-to run all solutions:
-
-    ./time_all.sh
-
 to benchmark all solutions:
 
     cargo bench
