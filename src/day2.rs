@@ -28,24 +28,30 @@ impl Iterator for Outcomes<'_, '_> {
     }
 }
 
-struct Parser {
-    game_pat: Regex,
-    outcome_pat: Regex,
+fn parse_game(s: &str) -> usize {
+    let (_, game) = s.split_once(' ').unwrap();
+    game.parse().unwrap()
 }
 
-impl Parser {
-    fn new() -> Self {
-        let game_pat = Regex::new(r"Game (\d+)").unwrap();
-        let outcome_pat = Regex::new(r"(\d+) (red|blue|green)").unwrap();
-        Self { game_pat, outcome_pat }
+fn parse_outcome(s: &str) -> Outcome {
+    let (mut r, mut g, mut b) = (0, 0, 0);
+    for handful in s.split(',') {
+        let (amt, col) = handful.trim().split_once(' ').unwrap();
+        let amt = amt.parse().unwrap();
+        match col {
+            "red" => r = amt,
+            "green" => g = amt,
+            "blue" => b = amt,
+            _ => panic!("invalid color"),
+        }
     }
+    Outcome(r, g, b)
+}
 
-    fn parse<'a, 'b>(&'b self, line: &'a str) -> (usize, Outcomes<'a, 'b>) {
-        let (game, outcomes) = line.split_once(':').unwrap();
-        let (_, [id]) = self.game_pat.captures(game).unwrap().extract();
-        let outcome = Outcomes { segs: outcomes.split(';'), pat: &self.outcome_pat };
-        (id.parse().unwrap(), outcome)
-    }
+fn parse(line: &str) -> (usize, impl Iterator<Item = Outcome> + '_) {
+    let (game, outcomes) = line.split_once(':').unwrap();
+    let outcomes = outcomes.split(';').map(parse_outcome);
+    (parse_game(game), outcomes)
 }
 
 fn can_fit(into: &Outcome, from: &Outcome) -> bool {
@@ -54,8 +60,7 @@ fn can_fit(into: &Outcome, from: &Outcome) -> bool {
 
 pub fn part1(input: &str) -> usize {
     let available = Outcome(12, 13, 14);
-    let parser = Parser::new();
-    let all_games = input.lines().map(|line| parser.parse(line));
+    let all_games = input.lines().map(parse);
     let possible_games = all_games.flat_map(|(id, mut outcomes)| {
         if outcomes.all(|outcome| can_fit(&available, &outcome)) {
             Some(id)
@@ -77,8 +82,7 @@ fn power(outcomes: impl Iterator<Item = Outcome>) -> i64 {
 }
 
 pub fn part2(input: &str) -> i64 {
-    let parser = Parser::new();
-    let all_games = input.lines().map(|line| parser.parse(line));
+    let all_games = input.lines().map(parse);
     let powers = all_games.map(|(_, outcomes)| power(outcomes));
     powers.sum()
 }
@@ -102,12 +106,11 @@ Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
     #[test]
     fn test2_1() {
         let mut lines = INPUT.lines();
-        let p = Parser::new();
-        assert_eq!(power(p.parse(lines.next().unwrap()).1), 48);
-        assert_eq!(power(p.parse(lines.next().unwrap()).1), 12);
-        assert_eq!(power(p.parse(lines.next().unwrap()).1), 1560);
-        assert_eq!(power(p.parse(lines.next().unwrap()).1), 630);
-        assert_eq!(power(p.parse(lines.next().unwrap()).1), 36);
+        assert_eq!(power(parse(lines.next().unwrap()).1), 48);
+        assert_eq!(power(parse(lines.next().unwrap()).1), 12);
+        assert_eq!(power(parse(lines.next().unwrap()).1), 1560);
+        assert_eq!(power(parse(lines.next().unwrap()).1), 630);
+        assert_eq!(power(parse(lines.next().unwrap()).1), 36);
         assert_eq!(lines.next(), None);
     }
 
