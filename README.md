@@ -2,6 +2,10 @@
 
 in rust with `#![no_std]`. no allocations!
 
+the binary crate (`src/main.rs`) uses std to get command-line flags and read
+the input. the library crate sets `#![no_std]` in `src/lib.rs` (and pulls in
+the rest of the code as modules).
+
 ## usage
 
 to run the solution for day N on the input `inputs/dayN.txt`:
