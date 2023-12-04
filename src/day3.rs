@@ -1,4 +1,4 @@
-use core::{iter::Iterator, str::Lines};
+use core::{iter::Iterator, ops::Range, str::Lines};
 use regex::{CaptureMatches, Match, Regex};
 
 lazy_static! {
@@ -17,6 +17,7 @@ struct Windows<'a> {
 
 impl<'a> Iterator for Windows<'a> {
     type Item = LineWindow<'a>;
+
     fn next(&mut self) -> Option<Self::Item> {
         let window = (self.buf[0].take(), self.buf[1].take()?, self.lines.next());
         self.buf = [Some(window.1), window.2];
@@ -36,13 +37,13 @@ struct Adjacent<'a, 'b> {
     cur: CaptureMatches<'a, 'b>,
     above: Option<CaptureMatches<'a, 'b>>,
     below: Option<CaptureMatches<'a, 'b>>,
-    range: (usize, usize),
+    range: Range<usize>,
 }
 
 fn find_adjacent<'a, 'b>(
     pat: &'a Regex,
     w: LineWindow<'b>,
-    range: (usize, usize),
+    range: Range<usize>,
 ) -> Adjacent<'a, 'b> {
     let cur = pat.captures_iter(w.1);
     let above = w.0.map(|above| pat.captures_iter(above));
@@ -51,20 +52,20 @@ fn find_adjacent<'a, 'b>(
 }
 
 impl<'a, 'b> Iterator for Adjacent<'a, 'b> {
-    type Item = &'b str;
+    type Item = Match<'b>;
 
     fn next(&mut self) -> Option<Self::Item> {
         for cap in &mut self.cur {
             let cap = cap.get(0).unwrap();
-            if cap.start() == self.range.1 || cap.end() == self.range.0 {
-                return Some(cap.as_str());
+            if cap.start() == self.range.end || cap.end() == self.range.start {
+                return Some(cap);
             }
         }
         for caps in [&mut self.above, &mut self.below].into_iter().flatten() {
             for cap in caps {
                 let cap = cap.get(0).unwrap();
-                if cap.start() <= self.range.1 && cap.end() >= self.range.0 {
-                    return Some(cap.as_str());
+                if cap.start() <= self.range.end && cap.end() >= self.range.start {
+                    return Some(cap);
                 }
             }
         }
@@ -72,30 +73,33 @@ impl<'a, 'b> Iterator for Adjacent<'a, 'b> {
     }
 }
 
+fn sliding_windows_sum(input: &str, f: impl Fn(LineWindow) -> i64) -> i64 {
+    windows(input).map(f).sum()
+}
+
+fn parse_num(m: Match) -> i64 {
+    m.as_str().parse().unwrap()
+}
+
 pub fn part1(input: &str) -> i64 {
-    let has_adj_sym = |w: LineWindow, around: &Match| {
-        find_adjacent(&SYM_RE, w, (around.start(), around.end())).next().is_some()
-    };
-    let window_sum = |w: LineWindow| -> i64 {
-        let nums = NUM_RE.captures_iter(w.1).map(|cap| cap.get(0).unwrap());
-        let nums_touching_sym = nums.filter(|cap| has_adj_sym(w, cap));
-        nums_touching_sym.map(|cap| cap.as_str().parse::<i64>().unwrap()).sum()
-    };
-    windows(input).map(window_sum).sum()
+    sliding_windows_sum(input, |w @ (_, cur, _)| {
+        let nums = NUM_RE.captures_iter(cur).map(|m| m.get(0).unwrap());
+        let has_adj_sym = |m: &Match| find_adjacent(&SYM_RE, w, m.range()).count() > 0;
+        let part_nums = nums.filter(has_adj_sym).map(parse_num);
+        part_nums.sum()
+    })
 }
 
 pub fn part2(input: &str) -> i64 {
-    let gear_ratio = |adj_nums: Adjacent| -> Option<i64> {
-        let mut nums = adj_nums.map(|cap| cap.parse::<i64>().unwrap());
-        let ratio = [nums.next()?, nums.next()?].into_iter().product();
-        nums.next().xor(Some(ratio))
-    };
-    let window_sum = |w: LineWindow| -> i64 {
-        let star_pos = w.1.chars().enumerate().filter(|p| p.1 == '*').map(|p| p.0);
-        let ratio_at = |i: usize| gear_ratio(find_adjacent(&NUM_RE, w, (i, i + 1)));
-        star_pos.flat_map(ratio_at).sum()
-    };
-    windows(input).map(window_sum).sum()
+    sliding_windows_sum(input, |w @ (_, cur, _)| {
+        let gears = cur.chars().enumerate().filter(|p| p.1 == '*').map(|p| p.0);
+        let gear_ratio = |i| {
+            let mut adj_nums = find_adjacent(&NUM_RE, w, i..i + 1).map(parse_num);
+            let ratio = adj_nums.next()? * adj_nums.next()?;
+            Some(ratio).xor(adj_nums.next())
+        };
+        gears.flat_map(gear_ratio).sum()
+    })
 }
 
 #[cfg(test)]
