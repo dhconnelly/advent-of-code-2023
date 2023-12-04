@@ -16,7 +16,7 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("day3part1", |b| b.iter(|| day3::part1(black_box(INPUTS[2]))));
     c.bench_function("day3part2", |b| b.iter(|| day3::part2(black_box(INPUTS[2]))));
     c.bench_function("day4part1", |b| b.iter(|| day4::part1(black_box(INPUTS[3]))));
-    c.bench_function("day4part1", |b| b.iter(|| day4::part2(black_box(INPUTS[3]))));
+    c.bench_function("day4part2", |b| b.iter(|| day4::part2(black_box(INPUTS[3]))));
 }
 
 criterion_group!(benches, benchmark);

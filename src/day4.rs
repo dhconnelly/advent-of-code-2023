@@ -1,11 +1,7 @@
 use core::u128;
-use once_cell::sync::Lazy;
-use regex::Regex;
 
 fn parse_nums(s: &str) -> impl Iterator<Item = u8> + '_ {
-    static NUM_RE: Lazy<regex::Regex> = Lazy::new(|| Regex::new(r"\d+").unwrap());
-    let matches = NUM_RE.captures_iter(s).map(|c| c.extract());
-    matches.map(|(num, [])| num.parse::<u8>().unwrap())
+    s.split_whitespace().flat_map(|tok| tok.parse::<u8>().ok())
 }
 
 fn set_of(it: impl Iterator<Item = u8>) -> u128 {
