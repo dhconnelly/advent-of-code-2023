@@ -17,18 +17,20 @@ fn die(err: impl Into<Error>) -> ! {
     std::process::exit(1);
 }
 
-trait Solver {
+trait Solve {
     fn solve(&self, input: &str);
 }
 
-impl<T: Display + 'static, F: Fn(&str) -> T> Solver for F {
+impl<T: Display + 'static, F: Fn(&str) -> T> Solve for F {
     fn solve(&self, input: &str) {
         println!("{}", self(input));
     }
 }
 
+type Solver = Box<dyn Solve>;
+
 fn solve(day: &str, input: &str) {
-    let solns: &[(&str, Box<dyn Solver>, Box<dyn Solver>)] = &[
+    let solns: &[(&str, Solver, Solver)] = &[
         ("day1", Box::new(day1::part1), Box::new(day1::part2)),
         ("day2", Box::new(day2::part1), Box::new(day2::part2)),
         ("day3", Box::new(day3::part1), Box::new(day3::part2)),
@@ -46,6 +48,6 @@ fn main() {
     let mut args = std::env::args().skip(1);
     let day = args.next().unwrap_or_else(|| die(Error::Usage));
     let path = args.next().unwrap_or_else(|| die(Error::Usage));
-    let input = std::fs::read_to_string(&path).unwrap_or_else(|err| die(err));
+    let input = std::fs::read_to_string(path).unwrap_or_else(|err| die(err));
     solve(&day, &input);
 }

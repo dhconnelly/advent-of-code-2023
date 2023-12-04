@@ -28,7 +28,7 @@ fn card_wins(card: &str) -> (usize, usize) {
 
 pub fn part1(input: &str) -> usize {
     let wins = input.lines().map(card_wins).map(|(_, wins)| wins);
-    let scores = wins.map(|wins| if wins == 0 { 0 } else { 1 << wins - 1 });
+    let scores = wins.map(|wins| if wins == 0 { 0 } else { 1 << (wins - 1) });
     scores.sum()
 }
 
