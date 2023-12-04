@@ -1,5 +1,3 @@
-use crate::ascii::IndexAscii;
-
 fn calibration_sum(
     input: &str,
     first: impl Fn(&str) -> u32,
@@ -20,13 +18,12 @@ pub fn part1(input: &str) -> u32 {
     )
 }
 
-const DIGIT_NAMES: [&str; 10] = [
-    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-];
+const DIGIT_NAMES: [&str; 10] =
+    ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 
 fn find_digit(line: &str, range: impl Iterator<Item = usize>) -> u32 {
     for i in range {
-        if let Some(digit) = line.ascii_at(i).to_digit(10) {
+        if let Some(digit) = (line.as_bytes()[i] as char).to_digit(10) {
             return digit;
         }
         for (digit, name) in DIGIT_NAMES.iter().enumerate() {
