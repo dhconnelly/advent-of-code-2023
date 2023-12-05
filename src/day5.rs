@@ -1,10 +1,53 @@
-const MAX_ITEMS: usize = 32;
+const MAX_ITEMS: usize = 1024;
 
-fn parse_seeds(line: &str) -> ([i64; MAX_ITEMS], usize) {
-    let (mut seeds, mut size) = ([i64::MAX; MAX_ITEMS], 0);
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+struct Range {
+    lo: i64,
+    hi: i64,
+}
+
+impl Range {
+    fn intersection(&self, other: &Range) -> Option<Range> {
+        if self.lo > other.hi || self.hi < other.lo {
+            None
+        } else {
+            let lo = self.lo.max(other.lo);
+            let hi = self.hi.min(other.hi);
+            Some(Range { lo, hi })
+        }
+    }
+
+    fn contains(&self, other: &Range) -> bool {
+        self.lo <= other.lo && self.hi >= other.hi
+    }
+
+    fn shift(&self, offset: i64) -> Range {
+        Range { lo: self.lo + offset, hi: self.hi + offset }
+    }
+}
+
+const MAX_RANGE: Range = Range { lo: i64::MAX, hi: i64::MAX };
+
+fn parse_seeds(line: &str) -> ([Range; MAX_ITEMS], usize) {
+    let (mut seeds, mut size) = ([MAX_RANGE; MAX_ITEMS], 0);
     let (_, line) = line.split_once(' ').unwrap();
     for (i, seed) in line.split(' ').enumerate() {
-        seeds[i] = seed.parse().unwrap();
+        let lo = seed.parse().unwrap();
+        seeds[i] = Range { lo, hi: lo };
+        size += 1;
+    }
+    (seeds, size)
+}
+
+fn parse_seed_ranges(line: &str) -> ([Range; MAX_ITEMS], usize) {
+    let (mut seeds, mut size) = ([MAX_RANGE; MAX_ITEMS], 0);
+    let (_, line) = line.split_once(' ').unwrap();
+    let mut toks = line.split(' ').enumerate();
+    while let Some((_, lo)) = toks.next() {
+        let lo = lo.parse().unwrap();
+        let (i, len) = toks.next().unwrap();
+        let len: i64 = len.parse().unwrap();
+        seeds[i / 2] = Range { lo, hi: lo + len - 1 };
         size += 1;
     }
     (seeds, size)
@@ -12,49 +55,80 @@ fn parse_seeds(line: &str) -> ([i64; MAX_ITEMS], usize) {
 
 #[derive(Debug)]
 struct RangeMap {
-    dst_start: i64,
-    src_start: i64,
-    len: i64,
+    src: Range,
+    dst: Range,
 }
 
 fn parse_range(line: &str) -> RangeMap {
     let mut nums = line.split(' ');
     let dst_start = nums.next().unwrap().parse().unwrap();
     let src_start = nums.next().unwrap().parse().unwrap();
-    let len = nums.next().unwrap().parse().unwrap();
+    let len: i64 = nums.next().unwrap().parse().unwrap();
     assert!(nums.next().is_none());
-    RangeMap { dst_start, src_start, len }
+    let src = Range { lo: src_start, hi: src_start + len - 1 };
+    let dst = Range { lo: dst_start, hi: src_start + len - 1 };
+    RangeMap { src, dst }
 }
 
-fn update(val: i64, range: &RangeMap) -> Option<i64> {
-    let offset = val - range.src_start;
-    if offset < 0 || offset >= range.len {
-        None
+#[derive(Debug)]
+enum Outcome {
+    NoChange,
+    Moved(Range),
+    Split2(Range, Range),
+}
+
+fn update(range: &Range, RangeMap { src, dst }: &RangeMap) -> Outcome {
+    if src.contains(range) {
+        Outcome::Moved(range.shift(dst.lo - src.lo))
+    } else if let Some(intersection) = src.intersection(range) {
+        let moved = intersection.shift(dst.lo - src.lo);
+        let unmoved = if range.lo < intersection.lo {
+            Range { lo: range.lo, hi: intersection.lo - 1 }
+        } else {
+            Range { lo: intersection.hi + 1, hi: range.hi }
+        };
+        Outcome::Split2(unmoved, moved)
     } else {
-        Some(range.dst_start + offset)
+        Outcome::NoChange
     }
 }
 
-pub fn part1(input: &str) -> i64 {
-    let mut chunks = input.split("\n\n");
-    let (mut state, n) = parse_seeds(chunks.next().unwrap());
+fn min_location<'a>(
+    mut state: [Range; MAX_ITEMS],
+    mut n: usize,
+    chunks: impl Iterator<Item = &'a str>,
+) -> i64 {
     let mut next_state = state;
     for chunk in chunks {
         for line in chunk.lines().skip(1) {
             let range = parse_range(line);
             for i in 0..n {
-                if let Some(next) = update(state[i], &range) {
-                    next_state[i] = next;
+                match update(&state[i], &range) {
+                    Outcome::NoChange => continue,
+                    Outcome::Moved(next) => next_state[i] = next,
+                    Outcome::Split2(a, b) => {
+                        next_state[i] = a;
+                        next_state[n] = b;
+                        n += 1;
+                    }
                 }
             }
         }
         state = next_state;
     }
-    *state.iter().min().unwrap()
+    state.iter().min().unwrap().lo
+}
+
+pub fn part1(input: &str) -> i64 {
+    let mut chunks = input.split("\n\n");
+    let (state, n) = parse_seeds(chunks.next().unwrap());
+    min_location(state, n, chunks)
 }
 
 pub fn part2(input: &str) -> i64 {
-    0
+    let mut chunks = input.split("\n\n");
+    let (state, n) = parse_seed_ranges(chunks.next().unwrap());
+    min_location(state, n, chunks)
 }
 
 #[cfg(test)]
@@ -98,6 +172,7 @@ humidity-to-location map:
 56 93 4
 ";
         assert_eq!(part1(input), 35);
+        assert_eq!(part2(input), 46);
     }
 
     #[test]
