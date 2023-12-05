@@ -9,7 +9,7 @@ struct Range {
 }
 
 impl Default for Range {
-    fn default() -> Self {
+    fn default() -> Range {
         Range { lo: i64::MAX, hi: i64::MAX }
     }
 }
@@ -35,23 +35,23 @@ impl Range {
 }
 
 fn parse_seeds(line: &str) -> RangeVec {
-    let mut state = RangeVec::default();
+    let mut ranges = RangeVec::default();
     for seed in line.split_once(' ').unwrap().1.split(' ') {
         let lo = seed.parse().unwrap();
-        state.push(Range { lo, hi: lo });
+        ranges.push(Range { lo, hi: lo });
     }
-    state
+    ranges
 }
 
 fn parse_seed_ranges(line: &str) -> RangeVec {
-    let mut state = RangeVec::default();
+    let mut ranges = RangeVec::default();
     let mut toks = line.split_once(' ').unwrap().1.split(' ');
     while let Some(lo) = toks.next() {
         let lo = lo.parse().unwrap();
         let len = toks.next().unwrap().parse::<i64>().unwrap();
-        state.push(Range { lo, hi: lo + len - 1 });
+        ranges.push(Range { lo, hi: lo + len - 1 });
     }
-    state
+    ranges
 }
 
 struct RangeMap {
@@ -91,37 +91,36 @@ fn apply_map(range: &Range, RangeMap { src, dst }: &RangeMap) -> Update {
     }
 }
 
-fn min_location<'a>(state: RangeVec, sections: impl Iterator<Item = &'a str>) -> i64 {
-    let (mut state, mut scratch) = (state, state);
+fn min_location<'a>(ranges: RangeVec, sections: impl Iterator<Item = &'a str>) -> i64 {
+    let (mut ranges, mut scratch) = (ranges, ranges);
     for section in sections {
         for map in section.lines().skip(1).map(parse_map) {
-            for i in 0..state.len() {
-                match apply_map(&state[i], &map) {
+            for i in 0..ranges.len() {
+                match apply_map(&ranges[i], &map) {
                     Update::NoChange => continue,
                     Update::Moved(next) => scratch[i] = next,
                     Update::Split { unmoved, moved } => {
-                        state[i] = unmoved;
-                        scratch[i] = unmoved;
+                        ranges[i] = unmoved;
                         scratch.push(moved);
                     }
                 }
             }
         }
-        state = scratch;
+        ranges = scratch;
     }
-    state.into_iter().min().unwrap().lo
+    ranges.into_iter().min().unwrap().lo
 }
 
 pub fn part1(input: &str) -> i64 {
     let mut sections = input.split("\n\n");
-    let state = parse_seeds(sections.next().unwrap());
-    min_location(state, sections)
+    let ranges = parse_seeds(sections.next().unwrap());
+    min_location(ranges, sections)
 }
 
 pub fn part2(input: &str) -> i64 {
     let mut sections = input.split("\n\n");
-    let state = parse_seed_ranges(sections.next().unwrap());
-    min_location(state, sections)
+    let ranges = parse_seed_ranges(sections.next().unwrap());
+    min_location(ranges, sections)
 }
 
 #[cfg(test)]
