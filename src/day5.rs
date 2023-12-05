@@ -1,5 +1,17 @@
 const MAX_ITEMS: usize = 128;
-const MAX_RANGE: Range = Range { lo: i64::MAX, hi: i64::MAX };
+
+#[derive(Clone, Copy)]
+struct Ranges {
+    ranges: [Range; MAX_ITEMS],
+    len: usize,
+}
+
+impl Default for Ranges {
+    fn default() -> Self {
+        let ranges = [Range { lo: i64::MAX, hi: i64::MAX }; MAX_ITEMS];
+        Self { ranges, len: 0 }
+    }
+}
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 struct Range {
@@ -27,29 +39,22 @@ impl Range {
     }
 }
 
-fn parse_seeds(line: &str) -> ([Range; MAX_ITEMS], usize) {
-    let (mut seeds, mut size) = ([MAX_RANGE; MAX_ITEMS], 0);
-    let (_, line) = line.split_once(' ').unwrap();
-    for (i, seed) in line.split(' ').enumerate() {
+fn parse_seeds(line: &str, state: &mut Ranges) {
+    for (i, seed) in line.split_once(' ').unwrap().1.split(' ').enumerate() {
         let lo = seed.parse().unwrap();
-        seeds[i] = Range { lo, hi: lo };
-        size += 1;
+        state.ranges[i] = Range { lo, hi: lo };
+        state.len += 1;
     }
-    (seeds, size)
 }
 
-fn parse_seed_ranges(line: &str) -> ([Range; MAX_ITEMS], usize) {
-    let (mut seeds, mut size) = ([MAX_RANGE; MAX_ITEMS], 0);
-    let (_, line) = line.split_once(' ').unwrap();
-    let mut toks = line.split(' ').enumerate();
-    while let Some((_, lo)) = toks.next() {
+fn parse_seed_ranges(line: &str, state: &mut Ranges) {
+    let mut toks = line.split_once(' ').unwrap().1.split(' ').enumerate();
+    while let Some((i, lo)) = toks.next() {
         let lo = lo.parse().unwrap();
-        let (i, len) = toks.next().unwrap();
-        let len: i64 = len.parse().unwrap();
-        seeds[i / 2] = Range { lo, hi: lo + len - 1 };
-        size += 1;
+        let len = toks.next().unwrap().1.parse::<i64>().unwrap();
+        state.ranges[i / 2] = Range { lo, hi: lo + len - 1 };
+        state.len += 1;
     }
-    (seeds, size)
 }
 
 struct RangeMap {
@@ -61,7 +66,7 @@ fn parse_map(line: &str) -> RangeMap {
     let mut nums = line.split(' ');
     let dst_start = nums.next().unwrap().parse().unwrap();
     let src_start = nums.next().unwrap().parse().unwrap();
-    let len: i64 = nums.next().unwrap().parse().unwrap();
+    let len = nums.next().unwrap().parse::<i64>().unwrap();
     assert!(nums.next().is_none());
     let src = Range { lo: src_start, hi: src_start + len - 1 };
     let dst = Range { lo: dst_start, hi: dst_start + len - 1 };
@@ -74,7 +79,7 @@ enum Outcome {
     Split2 { unmoved: Range, moved: Range },
 }
 
-fn update(range: &Range, RangeMap { src, dst }: &RangeMap) -> Outcome {
+fn apply_map(range: &Range, RangeMap { src, dst }: &RangeMap) -> Outcome {
     if src.contains(range) {
         Outcome::Moved(range.shift(dst.lo - src.lo))
     } else if let Some(intersection) = src.intersection(range) {
@@ -90,43 +95,44 @@ fn update(range: &Range, RangeMap { src, dst }: &RangeMap) -> Outcome {
     }
 }
 
-fn min_location<'a>(
-    mut state: [Range; MAX_ITEMS],
-    mut n: usize,
-    chunks: impl Iterator<Item = &'a str>,
-) -> i64 {
-    let (mut next_state, mut next_n) = (state, n);
-    for chunk in chunks {
-        for line in chunk.lines().skip(1) {
-            let map = parse_map(line);
-            for i in 0..n {
-                match update(&state[i], &map) {
-                    Outcome::NoChange => continue,
-                    Outcome::Moved(next) => next_state[i] = next,
-                    Outcome::Split2 { unmoved, moved } => {
-                        state[i] = unmoved;
-                        next_state[i] = unmoved;
-                        next_state[next_n] = moved;
-                        next_n += 1;
-                    }
+fn update_ranges(maps: &str, state: &mut Ranges, scratch: &mut Ranges) {
+    for map in maps.lines().skip(1).map(parse_map) {
+        for i in 0..state.len {
+            match apply_map(&state.ranges[i], &map) {
+                Outcome::NoChange => continue,
+                Outcome::Moved(next) => scratch.ranges[i] = next,
+                Outcome::Split2 { unmoved, moved } => {
+                    state.ranges[i] = unmoved;
+                    scratch.ranges[i] = unmoved;
+                    scratch.ranges[scratch.len] = moved;
+                    scratch.len += 1;
                 }
             }
         }
-        (state, n) = (next_state, next_n);
     }
-    state.iter().min().unwrap().lo
+    *state = *scratch;
+}
+
+fn min_location<'a>(state: Ranges, all_maps: impl Iterator<Item = &'a str>) -> i64 {
+    let (mut state, mut scratch) = (state, state);
+    for section in all_maps {
+        update_ranges(section, &mut state, &mut scratch);
+    }
+    state.ranges.iter().min().unwrap().lo
 }
 
 pub fn part1(input: &str) -> i64 {
-    let mut chunks = input.split("\n\n");
-    let (state, n) = parse_seeds(chunks.next().unwrap());
-    min_location(state, n, chunks)
+    let mut sections = input.split("\n\n");
+    let mut state = Ranges::default();
+    parse_seeds(sections.next().unwrap(), &mut state);
+    min_location(state, sections)
 }
 
 pub fn part2(input: &str) -> i64 {
-    let mut chunks = input.split("\n\n");
-    let (state, n) = parse_seed_ranges(chunks.next().unwrap());
-    min_location(state, n, chunks)
+    let mut sections = input.split("\n\n");
+    let mut state = Ranges::default();
+    parse_seed_ranges(sections.next().unwrap(), &mut state);
+    min_location(state, sections)
 }
 
 #[cfg(test)]
