@@ -34,20 +34,24 @@ impl Range {
     }
 }
 
-fn parse_seeds(line: &str, state: &mut RangeVec) {
+fn parse_seeds(line: &str) -> RangeVec {
+    let mut state = RangeVec::default();
     for seed in line.split_once(' ').unwrap().1.split(' ') {
         let lo = seed.parse().unwrap();
         state.push(Range { lo, hi: lo });
     }
+    state
 }
 
-fn parse_seed_ranges(line: &str, state: &mut RangeVec) {
+fn parse_seed_ranges(line: &str) -> RangeVec {
+    let mut state = RangeVec::default();
     let mut toks = line.split_once(' ').unwrap().1.split(' ');
     while let Some(lo) = toks.next() {
         let lo = lo.parse().unwrap();
         let len = toks.next().unwrap().parse::<i64>().unwrap();
         state.push(Range { lo, hi: lo + len - 1 });
     }
+    state
 }
 
 struct RangeMap {
@@ -110,15 +114,13 @@ fn min_location<'a>(state: RangeVec, sections: impl Iterator<Item = &'a str>) ->
 
 pub fn part1(input: &str) -> i64 {
     let mut sections = input.split("\n\n");
-    let mut state = RangeVec::default();
-    parse_seeds(sections.next().unwrap(), &mut state);
+    let state = parse_seeds(sections.next().unwrap());
     min_location(state, sections)
 }
 
 pub fn part2(input: &str) -> i64 {
     let mut sections = input.split("\n\n");
-    let mut state = RangeVec::default();
-    parse_seed_ranges(sections.next().unwrap(), &mut state);
+    let state = parse_seed_ranges(sections.next().unwrap());
     min_location(state, sections)
 }
 
