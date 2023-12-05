@@ -87,27 +87,23 @@ fn apply_map(range: &Range, RangeMap { src, dst }: &RangeMap) -> Update {
     }
 }
 
-fn update_ranges(maps: &str, state: &mut RangeVec, scratch: &mut RangeVec) {
-    for map in maps.lines().skip(1).map(parse_map) {
-        for i in 0..state.len() {
-            match apply_map(&state[i], &map) {
-                Update::NoChange => continue,
-                Update::Moved(next) => scratch[i] = next,
-                Update::Split { unmoved, moved } => {
-                    state[i] = unmoved;
-                    scratch[i] = unmoved;
-                    scratch.push(moved);
+fn min_location<'a>(state: RangeVec, sections: impl Iterator<Item = &'a str>) -> i64 {
+    let (mut state, mut scratch) = (state, state);
+    for section in sections {
+        for map in section.lines().skip(1).map(parse_map) {
+            for i in 0..state.len() {
+                match apply_map(&state[i], &map) {
+                    Update::NoChange => continue,
+                    Update::Moved(next) => scratch[i] = next,
+                    Update::Split { unmoved, moved } => {
+                        state[i] = unmoved;
+                        scratch[i] = unmoved;
+                        scratch.push(moved);
+                    }
                 }
             }
         }
-    }
-    *state = *scratch;
-}
-
-fn min_location<'a>(state: RangeVec, all_maps: impl Iterator<Item = &'a str>) -> i64 {
-    let (mut state, mut scratch) = (state, state);
-    for maps in all_maps {
-        update_ranges(maps, &mut state, &mut scratch);
+        state = scratch;
     }
     state.into_iter().min().unwrap().lo
 }
