@@ -6,6 +6,13 @@ struct RangeVec {
     len: usize,
 }
 
+impl RangeVec {
+    fn push(&mut self, range: Range) {
+        self.ranges[self.len] = range;
+        self.len += 1;
+    }
+}
+
 impl Default for RangeVec {
     fn default() -> Self {
         let ranges = [Range { lo: i64::MAX, hi: i64::MAX }; MAX_ITEMS];
@@ -40,20 +47,18 @@ impl Range {
 }
 
 fn parse_seeds(line: &str, state: &mut RangeVec) {
-    for (i, seed) in line.split_once(' ').unwrap().1.split(' ').enumerate() {
+    for seed in line.split_once(' ').unwrap().1.split(' ') {
         let lo = seed.parse().unwrap();
-        state.ranges[i] = Range { lo, hi: lo };
-        state.len += 1;
+        state.push(Range { lo, hi: lo });
     }
 }
 
 fn parse_seed_ranges(line: &str, state: &mut RangeVec) {
-    let mut toks = line.split_once(' ').unwrap().1.split(' ').enumerate();
-    while let Some((i, lo)) = toks.next() {
+    let mut toks = line.split_once(' ').unwrap().1.split(' ');
+    while let Some(lo) = toks.next() {
         let lo = lo.parse().unwrap();
-        let len = toks.next().unwrap().1.parse::<i64>().unwrap();
-        state.ranges[i / 2] = Range { lo, hi: lo + len - 1 };
-        state.len += 1;
+        let len = toks.next().unwrap().parse::<i64>().unwrap();
+        state.push(Range { lo, hi: lo + len - 1 });
     }
 }
 
@@ -103,8 +108,7 @@ fn update_ranges(maps: &str, state: &mut RangeVec, scratch: &mut RangeVec) {
                 Update::Split { unmoved, moved } => {
                     state.ranges[i] = unmoved;
                     scratch.ranges[i] = unmoved;
-                    scratch.ranges[scratch.len] = moved;
-                    scratch.len += 1;
+                    scratch.push(moved);
                 }
             }
         }
