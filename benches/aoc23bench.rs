@@ -1,11 +1,12 @@
 use advent_of_code_2023::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-const INPUTS: [&str; 4] = [
+const INPUTS: [&str; 5] = [
     include_str!("../inputs/day1.txt"),
     include_str!("../inputs/day2.txt"),
     include_str!("../inputs/day3.txt"),
     include_str!("../inputs/day4.txt"),
+    include_str!("../inputs/day5.txt"),
 ];
 
 fn benchmark(c: &mut Criterion) {
@@ -17,6 +18,8 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("day3part2", |b| b.iter(|| day3::part2(black_box(INPUTS[2]))));
     c.bench_function("day4part1", |b| b.iter(|| day4::part1(black_box(INPUTS[3]))));
     c.bench_function("day4part2", |b| b.iter(|| day4::part2(black_box(INPUTS[3]))));
+    c.bench_function("day5part1", |b| b.iter(|| day5::part1(black_box(INPUTS[4]))));
+    c.bench_function("day5part2", |b| b.iter(|| day5::part2(black_box(INPUTS[4]))));
 }
 
 criterion_group!(benches, benchmark);
