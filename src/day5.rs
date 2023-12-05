@@ -1,6 +1,7 @@
-const MAX_ITEMS: usize = 1024;
+const MAX_ITEMS: usize = 128;
+const MAX_RANGE: Range = Range { lo: i64::MAX, hi: i64::MAX };
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 struct Range {
     lo: i64,
     hi: i64,
@@ -25,8 +26,6 @@ impl Range {
         Range { lo: self.lo + offset, hi: self.hi + offset }
     }
 }
-
-const MAX_RANGE: Range = Range { lo: i64::MAX, hi: i64::MAX };
 
 fn parse_seeds(line: &str) -> ([Range; MAX_ITEMS], usize) {
     let (mut seeds, mut size) = ([MAX_RANGE; MAX_ITEMS], 0);
@@ -53,28 +52,26 @@ fn parse_seed_ranges(line: &str) -> ([Range; MAX_ITEMS], usize) {
     (seeds, size)
 }
 
-#[derive(Debug)]
 struct RangeMap {
     src: Range,
     dst: Range,
 }
 
-fn parse_range(line: &str) -> RangeMap {
+fn parse_map(line: &str) -> RangeMap {
     let mut nums = line.split(' ');
     let dst_start = nums.next().unwrap().parse().unwrap();
     let src_start = nums.next().unwrap().parse().unwrap();
     let len: i64 = nums.next().unwrap().parse().unwrap();
     assert!(nums.next().is_none());
     let src = Range { lo: src_start, hi: src_start + len - 1 };
-    let dst = Range { lo: dst_start, hi: src_start + len - 1 };
+    let dst = Range { lo: dst_start, hi: dst_start + len - 1 };
     RangeMap { src, dst }
 }
 
-#[derive(Debug)]
 enum Outcome {
     NoChange,
     Moved(Range),
-    Split2(Range, Range),
+    Split2 { unmoved: Range, moved: Range },
 }
 
 fn update(range: &Range, RangeMap { src, dst }: &RangeMap) -> Outcome {
@@ -87,7 +84,7 @@ fn update(range: &Range, RangeMap { src, dst }: &RangeMap) -> Outcome {
         } else {
             Range { lo: intersection.hi + 1, hi: range.hi }
         };
-        Outcome::Split2(unmoved, moved)
+        Outcome::Split2 { unmoved, moved }
     } else {
         Outcome::NoChange
     }
@@ -98,23 +95,24 @@ fn min_location<'a>(
     mut n: usize,
     chunks: impl Iterator<Item = &'a str>,
 ) -> i64 {
-    let mut next_state = state;
+    let (mut next_state, mut next_n) = (state, n);
     for chunk in chunks {
         for line in chunk.lines().skip(1) {
-            let range = parse_range(line);
+            let map = parse_map(line);
             for i in 0..n {
-                match update(&state[i], &range) {
+                match update(&state[i], &map) {
                     Outcome::NoChange => continue,
                     Outcome::Moved(next) => next_state[i] = next,
-                    Outcome::Split2(a, b) => {
-                        next_state[i] = a;
-                        next_state[n] = b;
-                        n += 1;
+                    Outcome::Split2 { unmoved, moved } => {
+                        state[i] = unmoved;
+                        next_state[i] = unmoved;
+                        next_state[next_n] = moved;
+                        next_n += 1;
                     }
                 }
             }
         }
-        state = next_state;
+        (state, n) = (next_state, next_n);
     }
     state.iter().min().unwrap().lo
 }
@@ -135,9 +133,7 @@ pub fn part2(input: &str) -> i64 {
 mod test {
     use super::*;
 
-    #[test]
-    fn test1() {
-        let input = "seeds: 79 14 55 13
+    const INPUT: &str = "seeds: 79 14 55 13
 
 seed-to-soil map:
 50 98 2
@@ -171,13 +167,21 @@ humidity-to-location map:
 60 56 37
 56 93 4
 ";
-        assert_eq!(part1(input), 35);
-        assert_eq!(part2(input), 46);
+
+    #[test]
+    fn test_part1() {
+        assert_eq!(part1(INPUT), 35);
     }
 
     #[test]
-    fn test2() {
+    fn test_part2() {
+        assert_eq!(part2(INPUT), 46);
+    }
+
+    #[test]
+    fn test_real() {
         let input = include_str!("../inputs/day5.txt");
         assert_eq!(part1(input), 322500873);
+        assert_eq!(part2(input), 108956227);
     }
 }
