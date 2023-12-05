@@ -1,29 +1,17 @@
-const MAX_ITEMS: usize = 128;
+use crate::static_vec::StaticVec;
 
-#[derive(Clone, Copy)]
-struct RangeVec {
-    ranges: [Range; MAX_ITEMS],
-    len: usize,
-}
-
-impl RangeVec {
-    fn push(&mut self, range: Range) {
-        self.ranges[self.len] = range;
-        self.len += 1;
-    }
-}
-
-impl Default for RangeVec {
-    fn default() -> Self {
-        let ranges = [Range { lo: i64::MAX, hi: i64::MAX }; MAX_ITEMS];
-        Self { ranges, len: 0 }
-    }
-}
+type RangeVec = StaticVec<Range, 128>;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 struct Range {
     lo: i64,
     hi: i64,
+}
+
+impl Default for Range {
+    fn default() -> Self {
+        Range { lo: i64::MAX, hi: i64::MAX }
+    }
 }
 
 impl Range {
@@ -101,13 +89,13 @@ fn apply_map(range: &Range, RangeMap { src, dst }: &RangeMap) -> Update {
 
 fn update_ranges(maps: &str, state: &mut RangeVec, scratch: &mut RangeVec) {
     for map in maps.lines().skip(1).map(parse_map) {
-        for i in 0..state.len {
-            match apply_map(&state.ranges[i], &map) {
+        for i in 0..state.len() {
+            match apply_map(&state[i], &map) {
                 Update::NoChange => continue,
-                Update::Moved(next) => scratch.ranges[i] = next,
+                Update::Moved(next) => scratch[i] = next,
                 Update::Split { unmoved, moved } => {
-                    state.ranges[i] = unmoved;
-                    scratch.ranges[i] = unmoved;
+                    state[i] = unmoved;
+                    scratch[i] = unmoved;
                     scratch.push(moved);
                 }
             }
@@ -121,7 +109,7 @@ fn min_location<'a>(state: RangeVec, all_maps: impl Iterator<Item = &'a str>) ->
     for maps in all_maps {
         update_ranges(maps, &mut state, &mut scratch);
     }
-    state.ranges.iter().min().unwrap().lo
+    state.into_iter().min().unwrap().lo
 }
 
 pub fn part1(input: &str) -> i64 {
