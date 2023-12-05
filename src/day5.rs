@@ -1,12 +1,12 @@
 const MAX_ITEMS: usize = 128;
 
 #[derive(Clone, Copy)]
-struct Ranges {
+struct RangeVec {
     ranges: [Range; MAX_ITEMS],
     len: usize,
 }
 
-impl Default for Ranges {
+impl Default for RangeVec {
     fn default() -> Self {
         let ranges = [Range { lo: i64::MAX, hi: i64::MAX }; MAX_ITEMS];
         Self { ranges, len: 0 }
@@ -39,7 +39,7 @@ impl Range {
     }
 }
 
-fn parse_seeds(line: &str, state: &mut Ranges) {
+fn parse_seeds(line: &str, state: &mut RangeVec) {
     for (i, seed) in line.split_once(' ').unwrap().1.split(' ').enumerate() {
         let lo = seed.parse().unwrap();
         state.ranges[i] = Range { lo, hi: lo };
@@ -47,7 +47,7 @@ fn parse_seeds(line: &str, state: &mut Ranges) {
     }
 }
 
-fn parse_seed_ranges(line: &str, state: &mut Ranges) {
+fn parse_seed_ranges(line: &str, state: &mut RangeVec) {
     let mut toks = line.split_once(' ').unwrap().1.split(' ').enumerate();
     while let Some((i, lo)) = toks.next() {
         let lo = lo.parse().unwrap();
@@ -67,21 +67,20 @@ fn parse_map(line: &str) -> RangeMap {
     let dst_start = nums.next().unwrap().parse().unwrap();
     let src_start = nums.next().unwrap().parse().unwrap();
     let len = nums.next().unwrap().parse::<i64>().unwrap();
-    assert!(nums.next().is_none());
     let src = Range { lo: src_start, hi: src_start + len - 1 };
     let dst = Range { lo: dst_start, hi: dst_start + len - 1 };
     RangeMap { src, dst }
 }
 
-enum Outcome {
+enum Update {
     NoChange,
     Moved(Range),
-    Split2 { unmoved: Range, moved: Range },
+    Split { unmoved: Range, moved: Range },
 }
 
-fn apply_map(range: &Range, RangeMap { src, dst }: &RangeMap) -> Outcome {
+fn apply_map(range: &Range, RangeMap { src, dst }: &RangeMap) -> Update {
     if src.contains(range) {
-        Outcome::Moved(range.shift(dst.lo - src.lo))
+        Update::Moved(range.shift(dst.lo - src.lo))
     } else if let Some(intersection) = src.intersection(range) {
         let moved = intersection.shift(dst.lo - src.lo);
         let unmoved = if range.lo < intersection.lo {
@@ -89,19 +88,19 @@ fn apply_map(range: &Range, RangeMap { src, dst }: &RangeMap) -> Outcome {
         } else {
             Range { lo: intersection.hi + 1, hi: range.hi }
         };
-        Outcome::Split2 { unmoved, moved }
+        Update::Split { unmoved, moved }
     } else {
-        Outcome::NoChange
+        Update::NoChange
     }
 }
 
-fn update_ranges(maps: &str, state: &mut Ranges, scratch: &mut Ranges) {
+fn update_ranges(maps: &str, state: &mut RangeVec, scratch: &mut RangeVec) {
     for map in maps.lines().skip(1).map(parse_map) {
         for i in 0..state.len {
             match apply_map(&state.ranges[i], &map) {
-                Outcome::NoChange => continue,
-                Outcome::Moved(next) => scratch.ranges[i] = next,
-                Outcome::Split2 { unmoved, moved } => {
+                Update::NoChange => continue,
+                Update::Moved(next) => scratch.ranges[i] = next,
+                Update::Split { unmoved, moved } => {
                     state.ranges[i] = unmoved;
                     scratch.ranges[i] = unmoved;
                     scratch.ranges[scratch.len] = moved;
@@ -113,24 +112,24 @@ fn update_ranges(maps: &str, state: &mut Ranges, scratch: &mut Ranges) {
     *state = *scratch;
 }
 
-fn min_location<'a>(state: Ranges, all_maps: impl Iterator<Item = &'a str>) -> i64 {
+fn min_location<'a>(state: RangeVec, all_maps: impl Iterator<Item = &'a str>) -> i64 {
     let (mut state, mut scratch) = (state, state);
-    for section in all_maps {
-        update_ranges(section, &mut state, &mut scratch);
+    for maps in all_maps {
+        update_ranges(maps, &mut state, &mut scratch);
     }
     state.ranges.iter().min().unwrap().lo
 }
 
 pub fn part1(input: &str) -> i64 {
     let mut sections = input.split("\n\n");
-    let mut state = Ranges::default();
+    let mut state = RangeVec::default();
     parse_seeds(sections.next().unwrap(), &mut state);
     min_location(state, sections)
 }
 
 pub fn part2(input: &str) -> i64 {
     let mut sections = input.split("\n\n");
-    let mut state = Ranges::default();
+    let mut state = RangeVec::default();
     parse_seed_ranges(sections.next().unwrap(), &mut state);
     min_location(state, sections)
 }
