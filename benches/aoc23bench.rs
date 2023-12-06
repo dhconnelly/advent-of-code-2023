@@ -1,7 +1,7 @@
 use advent_of_code_2023::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-const INPUTS: [&str; 6] = [
+const INPUTS: [&str; 7] = [
     include_str!("../inputs/day1.txt"),
     include_str!("../inputs/day2.txt"),
     include_str!("../inputs/day3.txt"),
