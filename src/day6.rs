@@ -51,7 +51,7 @@ fn floor(x: f64) -> i64 {
     }
 }
 
-fn ways(time: i64, dist: i64) -> i64 {
+fn num_pos_solns(time: i64, dist: i64) -> i64 {
     let (lo, hi) = solve(time, dist);
     floor(hi) - ceil(lo) + 1
 }
@@ -59,14 +59,14 @@ fn ways(time: i64, dist: i64) -> i64 {
 pub fn part1(input: &str) -> i64 {
     let mut prod = 1;
     for (time, dist) in parse(input) {
-        prod *= ways(time, dist);
+        prod *= num_pos_solns(time, dist);
     }
     prod
 }
 
 pub fn part2(input: &str) -> i64 {
     let (time, dist) = parse_one(input);
-    ways(time, dist)
+    num_pos_solns(time, dist)
 }
 
 #[cfg(test)]
@@ -80,5 +80,12 @@ Distance:  9  40  200
 ";
         assert_eq!(part1(input), 288);
         assert_eq!(part2(input), 71503);
+    }
+
+    #[test]
+    fn test_real() {
+        let input = include_str!("../inputs/day6.txt");
+        assert_eq!(part1(input), 32076);
+        assert_eq!(part2(input), 34278221);
     }
 }
