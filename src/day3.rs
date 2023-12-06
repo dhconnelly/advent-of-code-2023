@@ -81,11 +81,28 @@ fn parse_num(m: Match) -> i64 {
     m.as_str().parse().unwrap()
 }
 
+fn is_symbol(ch: char) -> bool {
+    !ch.is_ascii_digit() && ch != '.'
+}
+
+fn has_adj_symbol((above, cur, below): &LineWindow, m: &Match) -> bool {
+    let Range { mut start, mut end } = m.range();
+    start = 1.max(start) - 1;
+    end = cur.len().min(end + 1);
+    let b = cur.as_bytes();
+    if is_symbol(b[start] as char) || is_symbol(b[end - 1] as char) {
+        return true;
+    }
+    [above, below]
+        .into_iter()
+        .flatten()
+        .any(|line| line[Range { start, end }].contains(is_symbol))
+}
+
 pub fn part1(input: &str) -> i64 {
     sliding_windows_sum(input, |w @ (_, cur, _)| {
         let nums = NUM_RE.captures_iter(cur).map(|m| m.get(0).unwrap());
-        let has_adj_sym = |m: &Match| find_adjacent(&SYM_RE, w, m.range()).count() > 0;
-        let part_nums = nums.filter(has_adj_sym).map(parse_num);
+        let part_nums = nums.filter(|m| has_adj_symbol(&w, m)).map(parse_num);
         part_nums.sum()
     })
 }
