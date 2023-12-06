@@ -1,4 +1,4 @@
-use advent_of_code_2023::{day1, day2, day3, day4, day5};
+use advent_of_code_2023::{day1, day2, day3, day4, day5, day6};
 use std::fmt::Display;
 use thiserror::Error;
 
@@ -36,6 +36,7 @@ fn solve(day: &str, input: &str) {
         ("day3", Box::new(day3::part1), Box::new(day3::part2)),
         ("day4", Box::new(day4::part1), Box::new(day4::part2)),
         ("day5", Box::new(day5::part1), Box::new(day5::part2)),
+        ("day6", Box::new(day6::part1), Box::new(day6::part2)),
     ];
     let soln = solns
         .iter()
