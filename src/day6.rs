@@ -33,40 +33,17 @@ fn solve(time: i64, dist: i64) -> (f64, f64) {
     (fst, snd)
 }
 
-fn ceil(x: f64) -> i64 {
-    let ceil = x.ceil();
-    if ceil == x {
-        ceil as i64 + 1
-    } else {
-        ceil as i64
-    }
-}
-
-fn floor(x: f64) -> i64 {
-    let floor = x.floor();
-    if floor == x {
-        floor as i64 - 1
-    } else {
-        floor as i64
-    }
-}
-
-fn num_pos_solns(time: i64, dist: i64) -> i64 {
+fn num_pos_solns((time, dist): (i64, i64)) -> i64 {
     let (lo, hi) = solve(time, dist);
-    floor(hi) - ceil(lo) + 1
+    (hi - 1.0).ceil() as i64 - (lo + 1.0).floor() as i64 + 1
 }
 
 pub fn part1(input: &str) -> i64 {
-    let mut prod = 1;
-    for (time, dist) in parse(input) {
-        prod *= num_pos_solns(time, dist);
-    }
-    prod
+    parse(input).map(num_pos_solns).product()
 }
 
 pub fn part2(input: &str) -> i64 {
-    let (time, dist) = parse_one(input);
-    num_pos_solns(time, dist)
+    num_pos_solns(parse_one(input))
 }
 
 #[cfg(test)]
