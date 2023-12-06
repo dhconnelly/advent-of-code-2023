@@ -1,5 +1,3 @@
-use libc_print::libc_println;
-
 fn nums<'a>(line: &'a str) -> impl Iterator<Item = i64> + 'a {
     line.split_whitespace().skip(1).map(|tok| tok.trim().parse::<i64>().unwrap())
 }
@@ -9,6 +7,19 @@ fn parse<'a>(input: &'a str) -> impl Iterator<Item = (i64, i64)> + 'a {
     let times = lines.next().unwrap();
     let dists = lines.next().unwrap();
     nums(times).zip(nums(dists))
+}
+
+fn concat_num<'a>(toks: impl Iterator<Item = &'a str>) -> i64 {
+    toks.fold(0i64, |acc, tok| {
+        acc * (10i64.pow(tok.len() as u32)) + tok.parse::<i64>().unwrap()
+    })
+}
+
+fn parse_one(input: &str) -> (i64, i64) {
+    let mut lines = input.lines();
+    let time = concat_num(lines.next().unwrap().split_whitespace().skip(1));
+    let dist = concat_num(lines.next().unwrap().split_whitespace().skip(1));
+    (time, dist)
 }
 
 fn solve(time: i64, dist: i64) -> (f64, f64) {
@@ -40,18 +51,22 @@ fn floor(x: f64) -> i64 {
     }
 }
 
+fn ways(time: i64, dist: i64) -> i64 {
+    let (lo, hi) = solve(time, dist);
+    floor(hi) - ceil(lo) + 1
+}
+
 pub fn part1(input: &str) -> i64 {
-    let mut ways = 1;
+    let mut prod = 1;
     for (time, dist) in parse(input) {
-        let (lo, hi) = solve(time, dist);
-        let n = floor(hi) - ceil(lo) + 1;
-        ways *= n;
+        prod *= ways(time, dist);
     }
-    ways
+    prod
 }
 
 pub fn part2(input: &str) -> i64 {
-    0
+    let (time, dist) = parse_one(input);
+    ways(time, dist)
 }
 
 #[cfg(test)]
@@ -64,5 +79,6 @@ mod test {
 Distance:  9  40  200
 ";
         assert_eq!(part1(input), 288);
+        assert_eq!(part2(input), 71503);
     }
 }
