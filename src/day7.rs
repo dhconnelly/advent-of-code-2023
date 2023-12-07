@@ -2,25 +2,32 @@ use crate::static_vec::StaticVec;
 use core::cmp::Ordering;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-struct Card(u8);
+struct Card(i8);
+
+const JOKER: usize = 9;
 
 impl Card {
     fn score(&self) -> i8 {
-        let Card(b) = self;
-        match b {
-            b'A' => 12,
-            b'K' => 11,
-            b'Q' => 10,
-            b'J' => 9,
-            b'T' => 8,
-            b => (b - b'0' - 2) as i8,
-        }
+        self.0
     }
 
     fn score_joker(&self) -> i8 {
-        match self {
-            Card(b'J') => -1,
+        match self.0 {
+            card if card == JOKER as i8 => -1,
             _ => self.score(),
+        }
+    }
+}
+
+impl From<u8> for Card {
+    fn from(value: u8) -> Self {
+        match value {
+            b'A' => Card(12),
+            b'K' => Card(11),
+            b'Q' => Card(10),
+            b'J' => Card(9),
+            b'T' => Card(8),
+            value => Card((value - b'0' - 2) as i8),
         }
     }
 }
@@ -38,8 +45,8 @@ enum HandType {
 }
 
 impl HandType {
-    fn score(self) -> i64 {
-        self as i64
+    fn score(self) -> i8 {
+        self as i8
     }
 
     fn increment(self) -> HandType {
@@ -69,15 +76,15 @@ impl Hand {
     }
 
     fn score_counts(card_counts: StaticVec<i8, 13>) -> HandType {
-        let (mut fst, mut snd) = (0, 0);
-        for count in card_counts.into_iter() {
+        match card_counts.into_iter().fold((0, 0), |(fst, snd), count| {
             if count > fst {
-                (fst, snd) = (count, fst);
+                (count, fst)
             } else if count > snd {
-                snd = count;
+                (fst, count)
+            } else {
+                (fst, snd)
             }
-        }
-        match (fst, snd) {
+        }) {
             (5, _) => HandType::FiveOfAKind,
             (4, _) => HandType::FourOfAKind,
             (3, 2) => HandType::FullHouse,
@@ -96,9 +103,8 @@ impl Hand {
 
     fn typ_joker(&self) -> HandType {
         let mut counts = self.counts();
-        let joker_idx = Card(b'J').score() as usize;
-        let jokers = counts[joker_idx];
-        counts[joker_idx] = 0;
+        let jokers = counts[JOKER];
+        counts[JOKER] = 0;
         (0..jokers).fold(Self::score_counts(counts), |typ, _| typ.increment())
     }
 }
@@ -117,7 +123,7 @@ fn make_cmp(
 fn parse_hand(s: &str) -> Hand {
     let mut hand = [Card::default(); 5];
     for (i, b) in s.as_bytes().iter().copied().enumerate() {
-        hand[i] = Card(b);
+        hand[i] = b.into();
     }
     Hand(hand)
 }
