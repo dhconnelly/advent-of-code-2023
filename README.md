@@ -43,6 +43,8 @@ day5part1               time:   [31.347 µs 31.360 µs 31.374 µs]
 day5part2               time:   [35.978 µs 35.998 µs 36.019 µs]
 day6part1               time:   [187.01 ns 187.61 ns 188.27 ns]
 day6part2               time:   [156.93 ns 157.05 ns 157.18 ns]
+day7part1               time:   [306.59 µs 307.66 µs 308.95 µs]
+day7part2               time:   [347.45 µs 347.64 µs 347.91 µs]
 ```
 
 see `benches/aoc23bench.rs` for the benchmark definitions
