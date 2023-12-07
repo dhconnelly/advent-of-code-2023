@@ -18,6 +18,14 @@ impl Card {
             _ => panic!("unknown card"),
         }
     }
+
+    fn score_joker(self) -> i8 {
+        if let Card(b'J') = self {
+            -1
+        } else {
+            self.score()
+        }
+    }
 }
 
 impl core::fmt::Debug for Card {
@@ -81,58 +89,41 @@ impl Hand {
     }
 }
 
-impl PartialOrd for Hand {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let (score_l, score_r) = (self.typ().score(), other.typ().score());
-        if score_l < score_r {
-            Some(Ordering::Less)
-        } else if score_l > score_r {
-            Some(Ordering::Greater)
-        } else {
-            for (l, r) in self.0.iter().zip(other.0.iter()) {
-                let cmp = l.score() - r.score();
-                if cmp < 0 {
-                    return Some(Ordering::Less);
-                } else if cmp > 0 {
-                    return Some(Ordering::Greater);
-                }
-            }
-            Some(Ordering::Equal)
-        }
+fn cmp1(l: &Hand, r: &Hand) -> Ordering {
+    let (score_l, score_r) = (l.typ().score(), r.typ().score());
+    if score_l < score_r {
+        Ordering::Less
+    } else if score_l > score_r {
+        Ordering::Greater
+    } else {
+        l.0.iter().map(|c| c.score()).cmp(r.0.iter().map(|c| c.score()))
     }
 }
 
-impl Ord for Hand {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+fn parse_hand(s: &str) -> Hand {
+    let mut hand = [Card(0); 5];
+    for (i, b) in s.as_bytes().iter().enumerate() {
+        hand[i] = Card(*b);
     }
+    Hand(hand)
 }
 
-impl From<&str> for Hand {
-    fn from(s: &str) -> Hand {
-        let mut hand = [Card(0); 5];
-        for (i, b) in s.as_bytes().iter().enumerate() {
-            hand[i] = Card(*b);
-        }
-        Hand(hand)
-    }
-}
-
-pub fn part1(input: &str) -> i64 {
+fn total_winnings(input: &str, cmp_hands: impl Fn(&Hand, &Hand) -> Ordering) -> i64 {
     let mut winnings = 0;
     let mut hands = StaticVec::<(Hand, i64), 1024>::default();
     for line in input.lines() {
         let (hand, bid) = line.split_once(' ').unwrap();
-        let hand: Hand = hand.into();
-        let bid: i64 = bid.parse().unwrap();
-        hands.push((hand, bid));
+        hands.push((parse_hand(hand), bid.parse().unwrap()));
     }
-    hands.sort(|l, r| l.cmp(r).reverse());
+    hands.sort(|l, r| cmp_hands(&l.0, &r.0).reverse());
     for place in 1..=hands.len() {
-        let (hand, bid) = hands[hands.len() - place];
-        winnings += place as i64 * bid;
+        winnings += place as i64 * hands[hands.len() - place].1;
     }
     winnings
+}
+
+pub fn part1(input: &str) -> i64 {
+    total_winnings(input, cmp1)
 }
 
 pub fn part2(input: &str) -> i64 {
@@ -152,5 +143,13 @@ KTJJT 220
 QQQJA 483
 ";
         assert_eq!(part1(input), 6440);
+        //assert_eq!(part2(input), 5905);
+    }
+
+    #[test]
+    fn test_real() {
+        let input = include_str!("../inputs/day7.txt");
+        assert_eq!(part1(input), 248217452);
+        assert_eq!(part2(input), 0);
     }
 }
