@@ -1,5 +1,6 @@
 use core::{
     cmp::Ordering,
+    iter::Take,
     ops::{Index, IndexMut},
 };
 
@@ -18,32 +19,34 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
     pub fn len(&self) -> usize {
         self.len
     }
+
+    pub fn empty() -> Self {
+        Self { data: [T::default(); N], len: 0 }
+    }
+
+    pub fn of(t: T) -> Self {
+        Self { data: [t; N], len: N }
+    }
 }
 
 impl<T: Default + Copy, const N: usize> Index<usize> for StaticVec<T, N> {
     type Output = T;
     fn index(&self, index: usize) -> &Self::Output {
-        &self.data[index]
+        &(&self.data[..self.len])[index]
     }
 }
 
 impl<T: Default + Copy, const N: usize> IndexMut<usize> for StaticVec<T, N> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.data[index]
-    }
-}
-
-impl<T: Default + Copy, const N: usize> Default for StaticVec<T, N> {
-    fn default() -> Self {
-        Self { data: [T::default(); N], len: 0 }
+        &mut (&mut self.data[..self.len])[index]
     }
 }
 
 impl<T: Default + Copy, const N: usize> IntoIterator for StaticVec<T, N> {
     type Item = T;
-    type IntoIter = <[T; N] as IntoIterator>::IntoIter;
+    type IntoIter = Take<<[T; N] as IntoIterator>::IntoIter>;
     fn into_iter(self) -> Self::IntoIter {
-        self.data.into_iter()
+        self.data.into_iter().take(self.len)
     }
 }
 

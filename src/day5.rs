@@ -35,7 +35,7 @@ impl Range {
 }
 
 fn parse_seeds(line: &str) -> RangeVec {
-    let mut ranges = RangeVec::default();
+    let mut ranges = RangeVec::empty();
     for seed in line.split_once(' ').unwrap().1.split(' ') {
         let lo = seed.parse().unwrap();
         ranges.push(Range { lo, hi: lo });
@@ -44,7 +44,7 @@ fn parse_seeds(line: &str) -> RangeVec {
 }
 
 fn parse_seed_ranges(line: &str) -> RangeVec {
-    let mut ranges = RangeVec::default();
+    let mut ranges = RangeVec::empty();
     let mut toks = line.split_once(' ').unwrap().1.split(' ');
     while let Some(lo) = toks.next() {
         let lo = lo.parse().unwrap();
