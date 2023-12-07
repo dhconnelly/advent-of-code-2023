@@ -1,33 +1,59 @@
 use crate::static_vec::StaticVec;
 use core::cmp::Ordering;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-struct Card(i8);
-
-const JOKER: usize = 9;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Card {
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    Ten,
+    J,
+    Q,
+    K,
+    A,
+}
 
 impl Card {
     fn score(&self) -> i8 {
-        self.0
+        *self as i8
     }
 
     fn score_joker(&self) -> i8 {
-        match self.0 {
-            card if card == JOKER as i8 => -1,
+        match self {
+            Card::J => -1,
             _ => self.score(),
         }
+    }
+}
+
+impl Default for Card {
+    fn default() -> Self {
+        Card::Two
     }
 }
 
 impl From<u8> for Card {
     fn from(value: u8) -> Self {
         match value {
-            b'A' => Card(12),
-            b'K' => Card(11),
-            b'Q' => Card(10),
-            b'J' => Card(9),
-            b'T' => Card(8),
-            value => Card((value - b'0' - 2) as i8),
+            b'2' => Card::Two,
+            b'3' => Card::Three,
+            b'4' => Card::Four,
+            b'5' => Card::Five,
+            b'6' => Card::Six,
+            b'7' => Card::Seven,
+            b'8' => Card::Eight,
+            b'9' => Card::Nine,
+            b'T' => Card::Ten,
+            b'J' => Card::J,
+            b'Q' => Card::Q,
+            b'K' => Card::K,
+            b'A' => Card::A,
+            _ => panic!("invalid card"),
         }
     }
 }
@@ -103,8 +129,8 @@ impl Hand {
 
     fn typ_joker(&self) -> HandType {
         let mut counts = self.counts();
-        let jokers = counts[JOKER];
-        counts[JOKER] = 0;
+        let jokers = counts[Card::J as usize];
+        counts[Card::J as usize] = 0;
         (0..jokers).fold(Self::score_counts(counts), |typ, _| typ.increment())
     }
 }
