@@ -1,5 +1,4 @@
 use core::cmp::Ordering;
-use libc_print::std_name::println;
 
 use crate::static_vec::StaticVec;
 
@@ -59,24 +58,24 @@ struct Hand([Card; 5]);
 impl Hand {
     fn typ(&self) -> HandType {
         let mut counts = StaticVec::<i8, 15>::default();
-        let (mut max, mut snd) = (i8::MIN, i8::MIN);
+        let (mut fst, mut snd) = (0, 0);
         for i in self.0.iter().map(|c| c.score()) {
             let count = counts[i as usize] + 1;
-            if count > max {
-                max = count;
+            if count > fst {
+                fst = count;
             } else if count > snd {
-                snd = max;
+                snd = count;
             }
             counts[i as usize] = count;
         }
-        match (max, snd) {
-            (5, _) => HandType::FiveOfAKind,
-            (4, _) => HandType::FourOfAKind,
+        match (fst, snd) {
+            (5, 0) => HandType::FiveOfAKind,
+            (4, 1) => HandType::FourOfAKind,
             (3, 2) => HandType::FullHouse,
-            (3, _) => HandType::ThreeOfAKind,
+            (3, 1) => HandType::ThreeOfAKind,
             (2, 2) => HandType::TwoPair,
-            (2, _) => HandType::OnePair,
-            (1, _) => HandType::HighCard,
+            (2, 1) => HandType::OnePair,
+            (1, 1) => HandType::HighCard,
             _ => panic!("invalid hand"),
         }
     }
@@ -131,7 +130,6 @@ pub fn part1(input: &str) -> i64 {
     hands.sort(|l, r| l.cmp(r).reverse());
     for place in 1..=hands.len() {
         let (hand, bid) = hands[hands.len() - place];
-        println!("{} {} {:?}", place, bid, hand);
         winnings += place as i64 * bid;
     }
     winnings
