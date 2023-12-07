@@ -2,29 +2,25 @@ use core::cmp::Ordering;
 
 use crate::static_vec::StaticVec;
 
-#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
-struct Card(u8);
+type Card = u8;
 
-impl Card {
-    fn score(&self) -> i8 {
-        let Card(card) = self;
-        match card {
-            b'A' => 14,
-            b'K' => 13,
-            b'Q' => 12,
-            b'J' => 11,
-            b'T' => 10,
-            b if b.is_ascii_digit() => (b - b'0') as i8,
-            _ => panic!("unknown card"),
-        }
+fn score_card(card: u8) -> i8 {
+    match card {
+        b'A' => 14,
+        b'K' => 13,
+        b'Q' => 12,
+        b'J' => 11,
+        b'T' => 10,
+        b if b.is_ascii_digit() => (b - b'0') as i8,
+        _ => panic!("unknown card"),
     }
+}
 
-    fn score_joker(&self) -> i8 {
-        if let Card(b'J') = self {
-            -1
-        } else {
-            self.score()
-        }
+fn score_joker(card: u8) -> i8 {
+    if card == b'J' {
+        -1
+    } else {
+        score_card(card)
     }
 }
 
@@ -74,7 +70,7 @@ struct Hand([Card; 5]);
 impl Hand {
     fn counts(&self) -> StaticVec<i8, 15> {
         let mut counts = StaticVec::<i8, 15>::default();
-        for i in self.0.iter().map(|c| c.score()) {
+        for i in self.0.iter().map(|c| score_card(*c)) {
             counts[i as usize] += 1;
         }
         counts
@@ -109,8 +105,8 @@ impl Hand {
 
     fn score_joker(&self) -> HandType {
         let mut counts = self.counts();
-        let jokers = counts[Card(b'J').score() as usize];
-        counts[Card(b'J').score() as usize] = 0;
+        let jokers = counts[score_card(b'J') as usize];
+        counts[score_card(b'J') as usize] = 0;
         let mut typ = Self::score_counts(counts);
         for _ in 0..jokers {
             typ = typ.increment();
@@ -121,7 +117,7 @@ impl Hand {
 
 fn make_cmp(
     hand_type: impl Fn(&Hand) -> HandType,
-    score_card: impl Fn(&Card) -> i8,
+    score_card: impl Fn(Card) -> i8,
 ) -> impl Fn(&Hand, &Hand) -> Ordering {
     move |l, r| {
         let cmp = hand_type(l).score() - hand_type(r).score();
@@ -130,15 +126,15 @@ fn make_cmp(
         } else if cmp > 0 {
             Ordering::Greater
         } else {
-            l.0.iter().map(|c| score_card(c)).cmp(r.0.iter().map(|c| score_card(c)))
+            l.0.iter().map(|c| score_card(*c)).cmp(r.0.iter().map(|c| score_card(*c)))
         }
     }
 }
 
 fn parse_hand(s: &str) -> Hand {
-    let mut hand = [Card(0); 5];
+    let mut hand = [0; 5];
     for (i, b) in s.as_bytes().iter().enumerate() {
-        hand[i] = Card(*b);
+        hand[i] = *b;
     }
     Hand(hand)
 }
@@ -158,11 +154,11 @@ fn total_winnings(input: &str, cmp_hands: impl Fn(&Hand, &Hand) -> Ordering) -> 
 }
 
 pub fn part1(input: &str) -> i64 {
-    total_winnings(input, make_cmp(Hand::score, Card::score))
+    total_winnings(input, make_cmp(Hand::score, score_card))
 }
 
 pub fn part2(input: &str) -> i64 {
-    total_winnings(input, make_cmp(Hand::score_joker, Card::score_joker))
+    total_winnings(input, make_cmp(Hand::score_joker, score_joker))
 }
 
 #[cfg(test)]
