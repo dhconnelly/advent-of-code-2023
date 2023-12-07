@@ -2,11 +2,11 @@ use core::cmp::Ordering;
 
 use crate::static_vec::StaticVec;
 
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 struct Card(u8);
 
 impl Card {
-    fn score(self) -> i8 {
+    fn score(&self) -> i8 {
         let Card(card) = self;
         match card {
             b'A' => 14,
@@ -19,19 +19,12 @@ impl Card {
         }
     }
 
-    fn score_joker(self) -> i8 {
+    fn score_joker(&self) -> i8 {
         if let Card(b'J') = self {
             -1
         } else {
             self.score()
         }
-    }
-}
-
-impl core::fmt::Debug for Card {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let Card(card) = self;
-        write!(f, "{}", *card as char)
     }
 }
 
@@ -44,6 +37,7 @@ enum HandType {
     TwoPair,
     OnePair,
     HighCard,
+    Empty,
 }
 
 impl HandType {
@@ -56,6 +50,20 @@ impl HandType {
             HandType::TwoPair => 3,
             HandType::OnePair => 2,
             HandType::HighCard => 1,
+            HandType::Empty => 0,
+        }
+    }
+
+    fn increment(self) -> HandType {
+        match self {
+            HandType::FiveOfAKind => HandType::FiveOfAKind,
+            HandType::FourOfAKind => HandType::FiveOfAKind,
+            HandType::FullHouse => HandType::FourOfAKind,
+            HandType::ThreeOfAKind => HandType::FourOfAKind,
+            HandType::TwoPair => HandType::FullHouse,
+            HandType::OnePair => HandType::ThreeOfAKind,
+            HandType::HighCard => HandType::OnePair,
+            HandType::Empty => HandType::HighCard,
         }
     }
 }
@@ -64,39 +72,66 @@ impl HandType {
 struct Hand([Card; 5]);
 
 impl Hand {
-    fn typ(&self) -> HandType {
+    fn counts(&self) -> StaticVec<i8, 15> {
         let mut counts = StaticVec::<i8, 15>::default();
-        let (mut fst, mut snd) = (0, 0);
         for i in self.0.iter().map(|c| c.score()) {
-            let count = counts[i as usize] + 1;
+            counts[i as usize] += 1;
+        }
+        counts
+    }
+
+    fn score_counts(counts: StaticVec<i8, 15>) -> HandType {
+        let (mut fst, mut snd) = (0, 0);
+        for count in counts.into_iter() {
             if count > fst {
+                snd = fst;
                 fst = count;
             } else if count > snd {
                 snd = count;
             }
-            counts[i as usize] = count;
         }
         match (fst, snd) {
-            (5, 0) => HandType::FiveOfAKind,
-            (4, 1) => HandType::FourOfAKind,
+            (5, _) => HandType::FiveOfAKind,
+            (4, _) => HandType::FourOfAKind,
             (3, 2) => HandType::FullHouse,
-            (3, 1) => HandType::ThreeOfAKind,
+            (3, _) => HandType::ThreeOfAKind,
             (2, 2) => HandType::TwoPair,
-            (2, 1) => HandType::OnePair,
-            (1, 1) => HandType::HighCard,
+            (2, _) => HandType::OnePair,
+            (1, _) => HandType::HighCard,
+            (0, _) => HandType::Empty,
             _ => panic!("invalid hand"),
         }
     }
+
+    fn score(&self) -> HandType {
+        Self::score_counts(self.counts())
+    }
+
+    fn score_joker(&self) -> HandType {
+        let mut counts = self.counts();
+        let jokers = counts[Card(b'J').score() as usize];
+        counts[Card(b'J').score() as usize] = 0;
+        let mut typ = Self::score_counts(counts);
+        for _ in 0..jokers {
+            typ = typ.increment();
+        }
+        typ
+    }
 }
 
-fn cmp1(l: &Hand, r: &Hand) -> Ordering {
-    let (score_l, score_r) = (l.typ().score(), r.typ().score());
-    if score_l < score_r {
-        Ordering::Less
-    } else if score_l > score_r {
-        Ordering::Greater
-    } else {
-        l.0.iter().map(|c| c.score()).cmp(r.0.iter().map(|c| c.score()))
+fn make_cmp(
+    hand_type: impl Fn(&Hand) -> HandType,
+    score_card: impl Fn(&Card) -> i8,
+) -> impl Fn(&Hand, &Hand) -> Ordering {
+    move |l, r| {
+        let cmp = hand_type(l).score() - hand_type(r).score();
+        if cmp < 0 {
+            Ordering::Less
+        } else if cmp > 0 {
+            Ordering::Greater
+        } else {
+            l.0.iter().map(|c| score_card(c)).cmp(r.0.iter().map(|c| score_card(c)))
+        }
     }
 }
 
@@ -123,16 +158,25 @@ fn total_winnings(input: &str, cmp_hands: impl Fn(&Hand, &Hand) -> Ordering) -> 
 }
 
 pub fn part1(input: &str) -> i64 {
-    total_winnings(input, cmp1)
+    total_winnings(input, make_cmp(Hand::score, Card::score))
 }
 
 pub fn part2(input: &str) -> i64 {
-    0
+    total_winnings(input, make_cmp(Hand::score_joker, Card::score_joker))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_joker() {
+        assert_eq!(parse_hand("QJJQ2").score_joker(), HandType::FourOfAKind);
+        assert_eq!(parse_hand("KK677").score_joker(), HandType::TwoPair);
+        assert_eq!(parse_hand("T55J5").score_joker(), HandType::FourOfAKind);
+        assert_eq!(parse_hand("KTJJT").score_joker(), HandType::FourOfAKind);
+        assert_eq!(parse_hand("QQQJA").score_joker(), HandType::FourOfAKind);
+    }
 
     #[test]
     fn test_examples() {
@@ -143,13 +187,13 @@ KTJJT 220
 QQQJA 483
 ";
         assert_eq!(part1(input), 6440);
-        //assert_eq!(part2(input), 5905);
+        assert_eq!(part2(input), 5905);
     }
 
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day7.txt");
         assert_eq!(part1(input), 248217452);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 245576185);
     }
 }
