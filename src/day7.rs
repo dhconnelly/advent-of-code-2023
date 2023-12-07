@@ -1,11 +1,13 @@
 use core::cmp::Ordering;
 use libc_print::std_name::println;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use crate::static_vec::StaticVec;
+
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 struct Card(u8);
 
 impl Card {
-    fn score(self) -> i64 {
+    fn score(self) -> i8 {
         let Card(card) = self;
         match card {
             b'A' => 14,
@@ -13,9 +15,16 @@ impl Card {
             b'Q' => 12,
             b'J' => 11,
             b'T' => 10,
-            b if b.is_ascii_digit() => (b - b'0') as i64,
+            b if b.is_ascii_digit() => (b - b'0') as i8,
             _ => panic!("unknown card"),
         }
+    }
+}
+
+impl core::fmt::Debug for Card {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let Card(card) = self;
+        write!(f, "{}", *card as char)
     }
 }
 
@@ -44,12 +53,32 @@ impl HandType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 struct Hand([Card; 5]);
 
 impl Hand {
     fn typ(&self) -> HandType {
-        todo!()
+        let mut counts = StaticVec::<i8, 15>::default();
+        let (mut max, mut snd) = (i8::MIN, i8::MIN);
+        for i in self.0.iter().map(|c| c.score()) {
+            let count = counts[i as usize] + 1;
+            if count > max {
+                max = count;
+            } else if count > snd {
+                snd = max;
+            }
+            counts[i as usize] = count;
+        }
+        match (max, snd) {
+            (5, _) => HandType::FiveOfAKind,
+            (4, _) => HandType::FourOfAKind,
+            (3, 2) => HandType::FullHouse,
+            (3, _) => HandType::ThreeOfAKind,
+            (2, 2) => HandType::TwoPair,
+            (2, _) => HandType::OnePair,
+            (1, _) => HandType::HighCard,
+            _ => panic!("invalid hand"),
+        }
     }
 }
 
@@ -74,6 +103,12 @@ impl PartialOrd for Hand {
     }
 }
 
+impl Ord for Hand {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
 impl From<&str> for Hand {
     fn from(s: &str) -> Hand {
         let mut hand = [Card(0); 5];
@@ -86,12 +121,18 @@ impl From<&str> for Hand {
 
 pub fn part1(input: &str) -> i64 {
     let mut winnings = 0;
+    let mut hands = StaticVec::<(Hand, i64), 1024>::default();
     for line in input.lines() {
         let (hand, bid) = line.split_once(' ').unwrap();
         let hand: Hand = hand.into();
         let bid: i64 = bid.parse().unwrap();
-        let typ = hand.typ();
-        println!("{:?} {:?} {:?} {}", hand, bid, typ, typ.score());
+        hands.push((hand, bid));
+    }
+    hands.sort(|l, r| l.cmp(r).reverse());
+    for place in 1..=hands.len() {
+        let (hand, bid) = hands[hands.len() - place];
+        println!("{} {} {:?}", place, bid, hand);
+        winnings += place as i64 * bid;
     }
     winnings
 }
