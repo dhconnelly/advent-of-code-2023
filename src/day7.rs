@@ -1,87 +1,45 @@
 use crate::static_vec::StaticVec;
 use core::cmp::Ordering;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Card {
-    Two,
-    Three,
-    Four,
-    Five,
-    Six,
-    Seven,
-    Eight,
-    Nine,
-    Ten,
-    J,
-    Q,
-    K,
-    A,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct Card(u8);
 
 impl Card {
     fn score(&self) -> i8 {
-        *self as i8
+        let Card(b) = self;
+        match b {
+            b'A' => 12,
+            b'K' => 11,
+            b'Q' => 10,
+            b'J' => 9,
+            b'T' => 8,
+            b => (b - b'0' - 2) as i8,
+        }
     }
 
     fn score_joker(&self) -> i8 {
         match self {
-            Card::J => -1,
+            Card(b'J') => -1,
             _ => self.score(),
-        }
-    }
-}
-
-impl Default for Card {
-    fn default() -> Self {
-        Card::Two
-    }
-}
-
-impl From<u8> for Card {
-    fn from(value: u8) -> Self {
-        match value {
-            b'2' => Card::Two,
-            b'3' => Card::Three,
-            b'4' => Card::Four,
-            b'5' => Card::Five,
-            b'6' => Card::Six,
-            b'7' => Card::Seven,
-            b'8' => Card::Eight,
-            b'9' => Card::Nine,
-            b'T' => Card::Ten,
-            b'J' => Card::J,
-            b'Q' => Card::Q,
-            b'K' => Card::K,
-            b'A' => Card::A,
-            _ => panic!("invalid card"),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum HandType {
-    FiveOfAKind,
-    FourOfAKind,
-    FullHouse,
-    ThreeOfAKind,
-    TwoPair,
-    OnePair,
-    HighCard,
     Empty,
+    HighCard,
+    OnePair,
+    TwoPair,
+    ThreeOfAKind,
+    FullHouse,
+    FourOfAKind,
+    FiveOfAKind,
 }
 
 impl HandType {
     fn score(self) -> i64 {
-        match self {
-            HandType::FiveOfAKind => 7,
-            HandType::FourOfAKind => 6,
-            HandType::FullHouse => 5,
-            HandType::ThreeOfAKind => 4,
-            HandType::TwoPair => 3,
-            HandType::OnePair => 2,
-            HandType::HighCard => 1,
-            HandType::Empty => 0,
-        }
+        self as i64
     }
 
     fn increment(self) -> HandType {
@@ -105,7 +63,7 @@ impl Hand {
     fn counts(&self) -> StaticVec<i8, 13> {
         let mut counts = StaticVec::of(0);
         for card in self.0.iter() {
-            counts[*card as usize] += 1;
+            counts[card.score() as usize] += 1;
         }
         counts
     }
@@ -114,8 +72,7 @@ impl Hand {
         let (mut fst, mut snd) = (0, 0);
         for count in card_counts.into_iter() {
             if count > fst {
-                snd = fst;
-                fst = count;
+                (fst, snd) = (count, fst);
             } else if count > snd {
                 snd = count;
             }
@@ -139,13 +96,10 @@ impl Hand {
 
     fn typ_joker(&self) -> HandType {
         let mut counts = self.counts();
-        let jokers = counts[Card::J as usize];
-        counts[Card::J as usize] = 0;
-        let mut typ = Self::score_counts(counts);
-        for _ in 0..jokers {
-            typ = typ.increment();
-        }
-        typ
+        let joker_idx = Card(b'J').score() as usize;
+        let jokers = counts[joker_idx];
+        counts[joker_idx] = 0;
+        (0..jokers).fold(Self::score_counts(counts), |typ, _| typ.increment())
     }
 }
 
@@ -153,37 +107,28 @@ fn make_cmp(
     hand_type: impl Fn(&Hand) -> HandType,
     score_card: impl Fn(&Card) -> i8,
 ) -> impl Fn(&Hand, &Hand) -> Ordering {
-    move |l, r| {
-        let cmp = hand_type(l).score() - hand_type(r).score();
-        if cmp < 0 {
-            Ordering::Less
-        } else if cmp > 0 {
-            Ordering::Greater
-        } else {
-            l.0.iter().map(&score_card).cmp(r.0.iter().map(&score_card))
-        }
+    move |l, r| match hand_type(l).score() - hand_type(r).score() {
+        cmp if cmp < 0 => Ordering::Less,
+        cmp if cmp > 0 => Ordering::Greater,
+        _ => l.0.iter().map(&score_card).cmp(r.0.iter().map(&score_card)),
     }
 }
 
 fn parse_hand(s: &str) -> Hand {
     let mut hand = [Card::default(); 5];
     for (i, b) in s.as_bytes().iter().copied().enumerate() {
-        hand[i] = b.into();
+        hand[i] = Card(b);
     }
     Hand(hand)
 }
 
 fn total_winnings(input: &str, cmp_hands: impl Fn(&Hand, &Hand) -> Ordering) -> i64 {
-    let mut winnings = 0;
     let mut hands = StaticVec::<(Hand, i64), 1024>::empty();
     for (hand, bid) in input.lines().map(|line| line.split_once(' ').unwrap()) {
         hands.push((parse_hand(hand), bid.parse().unwrap()));
     }
     hands.sort(|l, r| cmp_hands(&l.0, &r.0));
-    for place in 0..hands.len() {
-        winnings += (place + 1) as i64 * hands[place].1;
-    }
-    winnings
+    (0..hands.len()).map(|place| (place + 1) as i64 * hands[place].1).sum()
 }
 
 pub fn part1(input: &str) -> i64 {
