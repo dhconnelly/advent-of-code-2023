@@ -159,7 +159,7 @@ fn total_winnings(input: &str, cmp_hands: impl Fn(&Hand, &Hand) -> Ordering) -> 
     for (hand, bid) in input.lines().map(|line| line.split_once(' ').unwrap()) {
         hands.push((parse_hand(hand), bid.parse().unwrap()));
     }
-    hands.sort(|l, r| cmp_hands(&l.0, &r.0));
+    hands.sort_by(|l, r| cmp_hands(&l.0, &r.0));
     (0..hands.len()).map(|place| (place + 1) as i64 * hands[place].1).sum()
 }
 

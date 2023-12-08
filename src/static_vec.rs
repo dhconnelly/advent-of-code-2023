@@ -52,11 +52,11 @@ impl<T: Default + Copy, const N: usize> IntoIterator for StaticVec<T, N> {
 }
 
 impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
-    pub fn sort(&mut self, cmp: impl FnMut(&T, &T) -> Ordering) {
+    pub fn sort_by(&mut self, cmp: impl FnMut(&T, &T) -> Ordering) {
         (&mut self.data[..self.len]).sort_by(cmp);
     }
 
-    pub fn search<K: Ord>(&self, t: &K, f: impl Fn(&T) -> K) -> Option<&T> {
+    pub fn binary_search_by_key<K: Ord>(&self, t: &K, f: impl Fn(&T) -> K) -> Option<&T> {
         (&self.data[..self.len]).binary_search_by_key(t, f).map(|i| &self[i]).ok()
     }
 }

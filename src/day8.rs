@@ -3,7 +3,7 @@ use crate::static_vec::StaticVec;
 type Graph<'a> = StaticVec<(&'a str, (&'a str, &'a str)), 1024>;
 
 fn lookup<'a>(graph: &'a Graph, key: &str) -> (&'a str, &'a str) {
-    graph.search(&key, |(s, _)| s).unwrap().1
+    graph.binary_search_by_key(&key, |(s, _)| s).unwrap().1
 }
 
 fn parse<'a>(input: &'a str) -> (&str, Graph) {
@@ -16,7 +16,7 @@ fn parse<'a>(input: &'a str) -> (&str, Graph) {
         let (left, right) = to.split_once(", ").unwrap();
         graph.push((from, (&left[1..], &right[..right.len() - 1])));
     }
-    graph.sort(|(left, _), (right, _)| left.cmp(right));
+    graph.sort_by(|(left, _), (right, _)| left.cmp(right));
     (dirs, graph)
 }
 
