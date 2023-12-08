@@ -2,8 +2,8 @@ use crate::static_vec::StaticVec;
 
 type Graph<'a> = StaticVec<(&'a str, (&'a str, &'a str)), 1024>;
 
-fn lookup<'a>(graph: &'a Graph, s: &str) -> (&'a str, &'a str) {
-    graph.search(&s, |(key, _)| key).unwrap().1
+fn lookup<'a>(graph: &'a Graph, key: &str) -> (&'a str, &'a str) {
+    graph.search(&key, |(s, _)| s).unwrap().1
 }
 
 fn parse<'a>(input: &'a str) -> (&str, Graph) {
@@ -59,16 +59,15 @@ fn lcm(x: i64, y: i64) -> i64 {
 
 pub fn part2(input: &str) -> i64 {
     let (dirs, graph) = parse(input);
-    let mut cur = StaticVec::<&str, 8>::empty();
-    for i in 0..graph.len() {
-        let (from, _) = graph[i];
+    let mut starts = StaticVec::<&str, 8>::empty();
+    for from in (0..graph.len()).map(|i| graph[i].0) {
         if from.ends_with("A") {
-            cur.push(from);
+            starts.push(from);
         }
     }
     let mut dists = StaticVec::<i64, 8>::empty();
-    for i in 0..cur.len() {
-        dists.push(dist(cur[i], |cur| cur.ends_with('Z'), dirs, &graph));
+    for i in 0..starts.len() {
+        dists.push(dist(starts[i], |cur| cur.ends_with('Z'), dirs, &graph));
     }
     dists.into_iter().fold(1, lcm)
 }
