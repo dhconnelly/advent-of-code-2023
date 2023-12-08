@@ -1,14 +1,15 @@
 use crate::static_vec::StaticVec;
 
+type Dir = u8;
 type Graph<'a> = StaticVec<(&'a str, (&'a str, &'a str)), 1024>;
 
 fn lookup<'a>(graph: &'a Graph, key: &str) -> (&'a str, &'a str) {
     graph.binary_search_by_key(&key, |(s, _)| s).unwrap().1
 }
 
-fn parse<'a>(input: &'a str) -> (&str, Graph) {
+fn parse<'a>(input: &'a str) -> (&'a [Dir], Graph<'a>) {
     let mut lines = input.lines();
-    let dirs = lines.next().unwrap();
+    let dirs = lines.next().unwrap().as_bytes();
     let mut graph = lines.skip(1).fold(StaticVec::empty(), |mut graph, line| {
         let (from, to) = line.split_once(" = ").unwrap();
         let (left, right) = to.split_once(", ").unwrap();
@@ -19,10 +20,10 @@ fn parse<'a>(input: &'a str) -> (&str, Graph) {
     (dirs, graph)
 }
 
-fn dist(from: &str, to: impl Fn(&str) -> bool, dirs: &str, graph: &Graph) -> i64 {
+fn dist(from: &str, to: impl Fn(&str) -> bool, dirs: &[Dir], graph: &Graph) -> i64 {
     let mut steps = 0;
     let mut cur = from;
-    for dir in dirs.bytes().cycle() {
+    for dir in dirs.iter().cycle() {
         if to(cur) {
             break;
         }
