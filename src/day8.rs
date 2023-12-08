@@ -68,11 +68,15 @@ fn lcm(x: i64, y: i64) -> i64 {
     x * y / gcd(x, y)
 }
 
+fn ends_with(s: &str, c: u8) -> bool {
+    s.as_bytes()[s.len() - 1] == c
+}
+
 pub fn part2(input: &str) -> i64 {
     let (dirs, graph, keys) = parse(input);
-    let starts = (0..graph.len()).filter(|i| keys[*i].ends_with('A'));
+    let starts = (0..graph.len()).filter(|i| ends_with(keys[*i], b'A'));
     starts.fold(1, |total, start| {
-        lcm(total, dist(start, |cur| keys[cur].ends_with('Z'), dirs, &graph))
+        lcm(total, dist(start, |cur| ends_with(keys[cur], b'Z'), dirs, &graph))
     })
 }
 
