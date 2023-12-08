@@ -10,12 +10,12 @@ fn parse<'a>(input: &'a str) -> (&'a [Dir], IndexedGraph, IndexedKeys<'a>) {
     let dirs = lines.next().unwrap().as_bytes();
 
     // build the key graph
-    let mut graph = lines.skip(1).fold(Graph::empty(), |mut graph, line| {
+    let mut graph = Graph::empty();
+    for line in lines.skip(1) {
         let (from, to) = line.split_once(" = ").unwrap();
         let (left, right) = to.split_once(", ").unwrap();
         graph.push((from, (&left[1..], &right[..right.len() - 1])));
-        graph
-    });
+    }
     graph.sort_by(|(left, _), (right, _)| left.cmp(right));
 
     // reduce to an index graph with a sidetable of keys to avoid online
