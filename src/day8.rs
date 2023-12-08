@@ -1,35 +1,14 @@
-use core::cmp::Ordering;
-
 use crate::static_vec::StaticVec;
-use libc_print::std_name::println;
 
-#[derive(Debug, Clone, Copy)]
-enum Dir {
-    L,
-    R,
+type Graph<'a> = StaticVec<(&'a str, (&'a str, &'a str)), 1024>;
+
+fn lookup<'a>(graph: &'a Graph, s: &str) -> (&'a str, &'a str) {
+    graph.search(&s, |(key, _)| key).unwrap().1
 }
 
-impl From<char> for Dir {
-    fn from(value: char) -> Self {
-        match value {
-            'L' => Dir::L,
-            'R' => Dir::R,
-            _ => panic!("unknown dir"),
-        }
-    }
-}
-
-struct Graph<'a>(StaticVec<(&'a str, (&'a str, &'a str)), 1024>);
-
-impl<'a> Graph<'a> {
-    fn get(&'a self, s: &str) -> (&'a str, &'a str) {
-        self.0.search(&s, |(key, _)| key).unwrap().1
-    }
-}
-
-fn parse<'a>(input: &'a str) -> (impl Iterator<Item = Dir> + 'a, Graph<'a>) {
+fn parse<'a>(input: &'a str) -> (&str, Graph) {
     let mut lines = input.lines();
-    let dirs = lines.next().unwrap().chars().map(Dir::from);
+    let dirs = lines.next().unwrap();
     lines.next().unwrap();
     let mut graph = StaticVec::empty();
     for line in lines {
@@ -38,51 +17,60 @@ fn parse<'a>(input: &'a str) -> (impl Iterator<Item = Dir> + 'a, Graph<'a>) {
         graph.push((from, (&left[1..], &right[..right.len() - 1])));
     }
     graph.sort(|(left, _), (right, _)| left.cmp(right));
-    (dirs.cycle(), Graph(graph))
+    (dirs, graph)
+}
+
+fn dist(from: &str, to: impl Fn(&str) -> bool, dirs: &str, graph: &Graph) -> i64 {
+    let mut steps = 0;
+    let mut cur = from;
+    for dir in dirs.bytes().cycle() {
+        if to(cur) {
+            break;
+        }
+        let (left, right) = lookup(&graph, cur);
+        match dir {
+            b'L' => cur = left,
+            _ => cur = right,
+        }
+        steps += 1;
+    }
+    steps
 }
 
 pub fn part1(input: &str) -> i64 {
     let (dirs, graph) = parse(input);
-    let mut steps = 0;
-    let mut cur = "AAA";
-    for dir in dirs {
-        if cur == "ZZZ" {
-            break;
+    dist("AAA", |cur| cur == "ZZZ", dirs, &graph)
+}
+
+fn gcd(mut x: i64, mut y: i64) -> i64 {
+    while x != y {
+        if x > y {
+            x = x - y;
+        } else {
+            y = y - x;
         }
-        let (left, right) = graph.get(cur);
-        match dir {
-            Dir::L => cur = left,
-            Dir::R => cur = right,
-        }
-        steps += 1;
     }
-    steps
+    x
+}
+
+fn lcm(x: i64, y: i64) -> i64 {
+    x * y / gcd(x, y)
 }
 
 pub fn part2(input: &str) -> i64 {
     let (dirs, graph) = parse(input);
-    let mut steps = 0;
     let mut cur = StaticVec::<&str, 8>::empty();
-    for i in 0..graph.0.len() {
-        let (from, _) = graph.0[i];
+    for i in 0..graph.len() {
+        let (from, _) = graph[i];
         if from.ends_with("A") {
             cur.push(from);
         }
     }
-    for dir in dirs {
-        if (0..cur.len()).all(|i| cur[i].ends_with("Z")) {
-            break;
-        }
-        for i in 0..cur.len() {
-            let (left, right) = graph.get(cur[i]);
-            match dir {
-                Dir::L => cur[i] = left,
-                Dir::R => cur[i] = right,
-            }
-        }
-        steps += 1;
+    let mut dists = StaticVec::<i64, 8>::empty();
+    for i in 0..cur.len() {
+        dists.push(dist(cur[i], |cur| cur.ends_with('Z'), dirs, &graph));
     }
-    steps
+    dists.into_iter().fold(1, lcm)
 }
 
 #[cfg(test)]
@@ -135,6 +123,6 @@ XXX = (XXX, XXX)
     fn test_real() {
         let input = include_str!("../inputs/day8.txt");
         assert_eq!(part1(input), 19783);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 9177460370549);
     }
 }
