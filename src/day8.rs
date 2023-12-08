@@ -9,13 +9,12 @@ fn lookup<'a>(graph: &'a Graph, key: &str) -> (&'a str, &'a str) {
 fn parse<'a>(input: &'a str) -> (&str, Graph) {
     let mut lines = input.lines();
     let dirs = lines.next().unwrap();
-    lines.next().unwrap();
-    let mut graph = StaticVec::empty();
-    for line in lines {
+    let mut graph = lines.skip(1).fold(StaticVec::empty(), |mut graph, line| {
         let (from, to) = line.split_once(" = ").unwrap();
         let (left, right) = to.split_once(", ").unwrap();
         graph.push((from, (&left[1..], &right[..right.len() - 1])));
-    }
+        graph
+    });
     graph.sort_by(|(left, _), (right, _)| left.cmp(right));
     (dirs, graph)
 }
@@ -59,15 +58,13 @@ fn lcm(x: i64, y: i64) -> i64 {
 
 pub fn part2(input: &str) -> i64 {
     let (dirs, graph) = parse(input);
-    (0..graph.len())
-        .filter_map(|i| match graph[i].0 {
-            from if from.ends_with("A") => Some(from),
-            _ => None,
-        })
-        .fold(1, |total_dist, start| {
-            let this_dist = dist(start, |cur| cur.ends_with('Z'), dirs, &graph);
-            lcm(total_dist, this_dist)
-        })
+    let starts = graph.iter().filter_map(|(from, _)| match from {
+        from if from.ends_with("A") => Some(from),
+        _ => None,
+    });
+    starts.fold(1, |total, start| {
+        lcm(total, dist(start, |cur| cur.ends_with('Z'), dirs, &graph))
+    })
 }
 
 #[cfg(test)]
