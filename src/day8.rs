@@ -59,18 +59,15 @@ fn lcm(x: i64, y: i64) -> i64 {
 
 pub fn part2(input: &str) -> i64 {
     let (dirs, graph) = parse(input);
-    let mut starts = StaticVec::<&str, 8>::empty();
-    for from in (0..graph.len()).map(|i| graph[i].0) {
-        if from.ends_with("A") {
-            starts.push(from);
-        }
-    }
-    let mut total_dist = 1;
-    for i in 0..starts.len() {
-        let this_dist = dist(starts[i], |cur| cur.ends_with('Z'), dirs, &graph);
-        total_dist = lcm(total_dist, this_dist);
-    }
-    total_dist
+    (0..graph.len())
+        .filter_map(|i| match graph[i].0 {
+            from if from.ends_with("A") => Some(from),
+            _ => None,
+        })
+        .fold(1, |total_dist, start| {
+            let this_dist = dist(start, |cur| cur.ends_with('Z'), dirs, &graph);
+            lcm(total_dist, this_dist)
+        })
 }
 
 #[cfg(test)]
