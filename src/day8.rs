@@ -56,15 +56,12 @@ pub fn part1(input: &str) -> i64 {
     dist(start, |cur| cur == end, dirs, &graph)
 }
 
-fn gcd(mut x: i64, mut y: i64) -> i64 {
-    while x != y {
-        if x > y {
-            x = x - y;
-        } else {
-            y = y - x;
-        }
+fn gcd(x: i64, y: i64) -> i64 {
+    if y == 0 {
+        x
+    } else {
+        gcd(y, x % y)
     }
-    x
 }
 
 fn lcm(x: i64, y: i64) -> i64 {
