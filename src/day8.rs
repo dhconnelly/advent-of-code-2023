@@ -60,7 +60,29 @@ pub fn part1(input: &str) -> i64 {
 }
 
 pub fn part2(input: &str) -> i64 {
-    0
+    let (dirs, graph) = parse(input);
+    let mut steps = 0;
+    let mut cur = StaticVec::<&str, 8>::empty();
+    for i in 0..graph.0.len() {
+        let (from, _) = graph.0[i];
+        if from.ends_with("A") {
+            cur.push(from);
+        }
+    }
+    for dir in dirs {
+        if (0..cur.len()).all(|i| cur[i].ends_with("Z")) {
+            break;
+        }
+        for i in 0..cur.len() {
+            let (left, right) = graph.get(cur[i]);
+            match dir {
+                Dir::L => cur[i] = left,
+                Dir::R => cur[i] = right,
+            }
+        }
+        steps += 1;
+    }
+    steps
 }
 
 #[cfg(test)]
@@ -80,7 +102,6 @@ GGG = (GGG, GGG)
 ZZZ = (ZZZ, ZZZ)
 ";
         assert_eq!(part1(input), 2);
-        assert_eq!(part2(input), 0);
     }
 
     #[test]
@@ -92,7 +113,22 @@ BBB = (AAA, ZZZ)
 ZZZ = (ZZZ, ZZZ)
 ";
         assert_eq!(part1(input), 6);
-        assert_eq!(part2(input), 0);
+    }
+
+    #[test]
+    fn test_example3() {
+        let input = "LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)
+";
+        assert_eq!(part2(input), 6);
     }
 
     #[test]

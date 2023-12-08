@@ -1,5 +1,6 @@
 use core::{
     cmp::{Ord, Ordering},
+    fmt::Debug,
     iter::Take,
     ops::{Index, IndexMut},
 };
@@ -57,5 +58,11 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
 
     pub fn search<K: Ord>(&self, t: &K, f: impl Fn(&T) -> K) -> Option<&T> {
         (&self.data[..self.len]).binary_search_by_key(t, f).map(|i| &self[i]).ok()
+    }
+}
+
+impl<T: Default + Copy + Debug, const N: usize> Debug for StaticVec<T, N> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        (&self.data[..self.len]).fmt(f)
     }
 }
