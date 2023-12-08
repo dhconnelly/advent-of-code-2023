@@ -65,11 +65,12 @@ pub fn part2(input: &str) -> i64 {
             starts.push(from);
         }
     }
-    let mut dists = StaticVec::<i64, 8>::empty();
+    let mut total_dist = 1;
     for i in 0..starts.len() {
-        dists.push(dist(starts[i], |cur| cur.ends_with('Z'), dirs, &graph));
+        let this_dist = dist(starts[i], |cur| cur.ends_with('Z'), dirs, &graph);
+        total_dist = lcm(total_dist, this_dist);
     }
-    dists.into_iter().fold(1, lcm)
+    total_dist
 }
 
 #[cfg(test)]
