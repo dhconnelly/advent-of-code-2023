@@ -32,6 +32,18 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.data[..self.len].iter()
     }
+
+    pub fn sort_by(&mut self, cmp: impl FnMut(&T, &T) -> Ordering) {
+        self.data[..self.len].sort_by(cmp);
+    }
+
+    pub fn binary_search_by_key<K: Ord>(
+        &self,
+        t: &K,
+        f: impl Fn(&T) -> K,
+    ) -> Option<usize> {
+        self.data[..self.len].binary_search_by_key(t, f).ok()
+    }
 }
 
 impl<T: Default + Copy, const N: usize> Index<usize> for StaticVec<T, N> {
@@ -52,16 +64,6 @@ impl<T: Default + Copy, const N: usize> IntoIterator for StaticVec<T, N> {
     type IntoIter = Take<<[T; N] as IntoIterator>::IntoIter>;
     fn into_iter(self) -> Self::IntoIter {
         self.data.into_iter().take(self.len)
-    }
-}
-
-impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
-    pub fn sort_by(&mut self, cmp: impl FnMut(&T, &T) -> Ordering) {
-        self.data[..self.len].sort_by(cmp);
-    }
-
-    pub fn binary_search_by_key<K: Ord>(&self, t: &K, f: impl Fn(&T) -> K) -> Option<&T> {
-        self.data[..self.len].binary_search_by_key(t, f).map(|i| &self[i]).ok()
     }
 }
 

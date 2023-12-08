@@ -2,32 +2,44 @@ use crate::static_vec::StaticVec;
 
 type Dir = u8;
 type Graph<'a> = StaticVec<(&'a str, (&'a str, &'a str)), 1024>;
+type IndexedGraph = StaticVec<(usize, usize), 1024>;
+type IndexedKeys<'a> = StaticVec<&'a str, 1024>;
 
-fn lookup<'a>(graph: &'a Graph, key: &str) -> (&'a str, &'a str) {
-    graph.binary_search_by_key(&key, |(s, _)| s).unwrap().1
-}
-
-fn parse<'a>(input: &'a str) -> (&'a [Dir], Graph<'a>) {
+fn parse<'a>(input: &'a str) -> (&'a [Dir], IndexedGraph, IndexedKeys<'a>) {
     let mut lines = input.lines();
     let dirs = lines.next().unwrap().as_bytes();
-    let mut graph = lines.skip(1).fold(StaticVec::empty(), |mut graph, line| {
+
+    // build the key graph
+    let mut graph = lines.skip(1).fold(Graph::empty(), |mut graph, line| {
         let (from, to) = line.split_once(" = ").unwrap();
         let (left, right) = to.split_once(", ").unwrap();
         graph.push((from, (&left[1..], &right[..right.len() - 1])));
         graph
     });
     graph.sort_by(|(left, _), (right, _)| left.cmp(right));
-    (dirs, graph)
+
+    // reduce to an index graph with a sidetable of keys to avoid online
+    // binary searches
+    let mut indexed_graph = IndexedGraph::empty();
+    let mut keys = IndexedKeys::empty();
+    for (key, (left, right)) in graph.into_iter() {
+        let left = graph.binary_search_by_key(&left, |(s, _)| s).unwrap();
+        let right = graph.binary_search_by_key(&right, |(s, _)| s).unwrap();
+        indexed_graph.push((left, right));
+        keys.push(key);
+    }
+
+    (dirs, indexed_graph, keys)
 }
 
-fn dist(from: &str, to: impl Fn(&str) -> bool, dirs: &[Dir], graph: &Graph) -> i64 {
+fn dist(from: usize, to: impl Fn(usize) -> bool, dirs: &[Dir], g: &IndexedGraph) -> i64 {
     let mut steps = 0;
     let mut cur = from;
     for dir in dirs.iter().cycle() {
         if to(cur) {
             break;
         }
-        let (left, right) = lookup(&graph, cur);
+        let (left, right) = g[cur];
         match dir {
             b'L' => cur = left,
             _ => cur = right,
@@ -38,8 +50,10 @@ fn dist(from: &str, to: impl Fn(&str) -> bool, dirs: &[Dir], graph: &Graph) -> i
 }
 
 pub fn part1(input: &str) -> i64 {
-    let (dirs, graph) = parse(input);
-    dist("AAA", |cur| cur == "ZZZ", dirs, &graph)
+    let (dirs, graph, keys) = parse(input);
+    let start = keys.binary_search_by_key(&"AAA", |s| *s).unwrap();
+    let end = keys.binary_search_by_key(&"ZZZ", |s| *s).unwrap();
+    dist(start, |cur| cur == end, dirs, &graph)
 }
 
 fn gcd(mut x: i64, mut y: i64) -> i64 {
@@ -58,13 +72,10 @@ fn lcm(x: i64, y: i64) -> i64 {
 }
 
 pub fn part2(input: &str) -> i64 {
-    let (dirs, graph) = parse(input);
-    let starts = graph.iter().filter_map(|(from, _)| match from {
-        from if from.ends_with("A") => Some(from),
-        _ => None,
-    });
+    let (dirs, graph, keys) = parse(input);
+    let starts = (0..graph.len()).filter(|i| keys[*i].ends_with('A'));
     starts.fold(1, |total, start| {
-        lcm(total, dist(start, |cur| cur.ends_with('Z'), dirs, &graph))
+        lcm(total, dist(start, |cur| keys[cur].ends_with('Z'), dirs, &graph))
     })
 }
 
