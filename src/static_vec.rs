@@ -72,3 +72,13 @@ impl<T: Default + Copy + Debug, const N: usize> Debug for StaticVec<T, N> {
         (&self.data[..self.len]).fmt(f)
     }
 }
+
+impl<T: Default + Copy, const N: usize> FromIterator<T> for StaticVec<T, N> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut vec = StaticVec::empty();
+        for item in iter {
+            vec.push(item);
+        }
+        vec
+    }
+}
