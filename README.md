@@ -20,7 +20,8 @@ to benchmark a specific (day, part):
 
     cargo bench -- dayNpartM
 
-to generate a flamegraph profile for a specific (day, part):
+to generate a flamegraph profile for a specific (day, part) (make sure
+you have installed `flamegraph`):
 
     cargo flamegraph --bench aoc23bench --root -- --bench dayNpartM --profile-time 30
 
@@ -28,27 +29,27 @@ to generate a flamegraph profile for a specific (day, part):
 
 ## benchmarks
 
-according to `cargo criterion --output-format=quiet`:
+according to `cargo bench` on my 2022 m2 macbook air, charging:
 
 ```
-day1part1               time:   [48.143 µs 49.193 µs 50.228 µs]
-day1part2               time:   [116.90 µs 117.39 µs 117.89 µs]
-day2part1               time:   [47.008 µs 47.052 µs 47.095 µs]
-day2part2               time:   [68.830 µs 68.913 µs 69.009 µs]
-day3part1               time:   [224.04 µs 224.19 µs 224.34 µs]
-day3part2               time:   [1.5731 ms 1.5738 ms 1.5743 ms]
-day4part1               time:   [103.70 µs 103.94 µs 104.27 µs]
-day4part2               time:   [105.12 µs 105.17 µs 105.24 µs]
-day5part1               time:   [31.347 µs 31.360 µs 31.374 µs]
-day5part2               time:   [35.978 µs 35.998 µs 36.019 µs]
-day6part1               time:   [187.01 ns 187.61 ns 188.27 ns]
-day6part2               time:   [156.93 ns 157.05 ns 157.18 ns]
-day7part1               time:   [306.59 µs 307.66 µs 308.95 µs]
-day7part2               time:   [347.45 µs 347.64 µs 347.91 µs]
-day8part1               time:   [195.28 µs 196.16 µs 197.12 µs]
-day8part2               time:   [396.87 µs 397.91 µs 399.85 µs]
-day9part1               time:   [142.90 µs 142.95 µs 143.00 µs]
-day9part2               time:   [143.28 µs 143.33 µs 143.38 µs]
+day1part1               time:   [27.278 µs 27.823 µs 28.286 µs]
+day1part2               time:   [66.983 µs 67.018 µs 67.062 µs]
+day2part1               time:   [27.174 µs 27.187 µs 27.205 µs]
+day2part2               time:   [40.147 µs 40.167 µs 40.189 µs]
+day3part1               time:   [127.72 µs 127.77 µs 127.83 µs]
+day3part2               time:   [908.11 µs 908.37 µs 908.71 µs]
+day4part1               time:   [59.585 µs 59.631 µs 59.700 µs]
+day4part2               time:   [61.097 µs 61.386 µs 61.763 µs]
+day5part1               time:   [18.027 µs 18.040 µs 18.057 µs]
+day5part2               time:   [20.802 µs 20.809 µs 20.817 µs]
+day6part1               time:   [170.62 ns 170.84 ns 171.08 ns]
+day6part2               time:   [156.20 ns 156.34 ns 156.54 ns]
+day7part1               time:   [303.21 µs 303.45 µs 303.70 µs]
+day7part2               time:   [353.91 µs 355.33 µs 356.85 µs]
+day8part1               time:   [199.51 µs 199.58 µs 199.66 µs]
+day8part2               time:   [382.16 µs 382.37 µs 382.62 µs]
+day9part1               time:   [82.521 µs 82.613 µs 82.754 µs]
+day9part2               time:   [82.364 µs 82.427 µs 82.521 µs]
 ```
 
-see `benches/aoc23bench.rs` for the benchmark definitions
+see `benches/aoc23bench.rs` for the benchmark definitions.
