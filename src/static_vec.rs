@@ -12,19 +12,13 @@ pub struct StaticVec<T: Default + Copy, const N: usize> {
 }
 
 impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
+    pub fn from<const M: usize>(data: [T; M]) -> Self {
+        data.into_iter().collect()
+    }
+
     pub fn push(&mut self, elem: T) {
         self.data[self.len] = elem;
         self.len += 1;
-    }
-
-    pub fn pop(&mut self) -> T {
-        let val = core::mem::take(&mut self.data[self.len - 1]);
-        self.len -= 1;
-        val
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
     }
 
     pub fn len(&self) -> usize {

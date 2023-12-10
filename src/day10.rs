@@ -1,10 +1,11 @@
-use core::cmp::Ordering;
-
-use libc_print::std_name::*;
-
 use crate::static_vec::StaticVec;
 
+type Tile = u8;
 type Pt2 = (i32, i32);
+// TODO: make a faster set
+type Set = StaticVec<Pt2, 32768>;
+// TODO: add a range-contains
+type Queue = StaticVec<(Pt2, i32), 32768>;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 enum Dir {
@@ -14,30 +15,6 @@ enum Dir {
     Left,
     Right,
 }
-
-fn go((row, col): Pt2, dir: Dir) -> Pt2 {
-    match dir {
-        Dir::Left => (row, col - 1),
-        Dir::Right => (row, col + 1),
-        Dir::Above => (row - 1, col),
-        Dir::Below => (row + 1, col),
-    }
-}
-
-fn dirs_from(from: Tile) -> StaticVec<Dir, 4> {
-    match from {
-        b'|' => [Dir::Above, Dir::Below].into_iter().collect(),
-        b'-' => [Dir::Left, Dir::Right].into_iter().collect(),
-        b'L' => [Dir::Above, Dir::Right].into_iter().collect(),
-        b'J' => [Dir::Above, Dir::Left].into_iter().collect(),
-        b'7' => [Dir::Left, Dir::Below].into_iter().collect(),
-        b'F' => [Dir::Right, Dir::Below].into_iter().collect(),
-        b'S' => [Dir::Left, Dir::Right, Dir::Above, Dir::Below].into_iter().collect(),
-        _ => StaticVec::empty(),
-    }
-}
-
-type Tile = u8;
 
 #[derive(Debug)]
 struct Grid<'a> {
@@ -56,48 +33,59 @@ impl Grid<'_> {
             Some(self.data[(row * (self.width + 1) + col) as usize])
         }
     }
+}
 
-    fn neighbors(&self, from: Pt2) -> StaticVec<Pt2, 4> {
-        let tile = match self.at(from) {
-            None => return StaticVec::empty(),
-            Some(tile) => tile,
-        };
-        dirs_from(tile)
-            .into_iter()
-            .map(|dir| go(from, dir))
-            .filter(|pt| self.at(*pt).is_some())
-            .collect()
+fn tube_directions(from: Tile) -> StaticVec<Dir, 4> {
+    match from {
+        b'|' => [Dir::Above, Dir::Below].into_iter().collect(),
+        b'-' => [Dir::Left, Dir::Right].into_iter().collect(),
+        b'L' => [Dir::Above, Dir::Right].into_iter().collect(),
+        b'J' => [Dir::Above, Dir::Left].into_iter().collect(),
+        b'7' => [Dir::Left, Dir::Below].into_iter().collect(),
+        b'F' => [Dir::Right, Dir::Below].into_iter().collect(),
+        b'S' => [Dir::Left, Dir::Right, Dir::Above, Dir::Below].into_iter().collect(),
+        _ => StaticVec::empty(),
     }
 }
 
-fn parse(input: &str) -> Grid {
-    let width = input.lines().next().unwrap().len() as i32;
-    let height = input.lines().count() as i32;
-    Grid { data: input.as_bytes(), width, height }
+fn go((row, col): Pt2, dir: Dir) -> Pt2 {
+    match dir {
+        Dir::Left => (row, col - 1),
+        Dir::Right => (row, col + 1),
+        Dir::Above => (row - 1, col),
+        Dir::Below => (row + 1, col),
+    }
 }
 
-fn connections(grid: &Grid, from: Pt2) -> StaticVec<Pt2, 4> {
-    grid.neighbors(from)
+fn tube_neighbors(grid: &Grid, from: Pt2) -> StaticVec<Pt2, 4> {
+    let tile = match grid.at(from) {
+        None => return StaticVec::empty(),
+        Some(tile) => tile,
+    };
+    tube_directions(tile)
         .into_iter()
-        .filter(|nbr| grid.neighbors(*nbr).contains(&from))
+        .map(|dir| go(from, dir))
+        .filter(|pt| grid.at(*pt).is_some())
         .collect()
 }
 
-fn find_start(grid: &Grid) -> Option<Pt2> {
+fn tube_connections(grid: &Grid, from: Pt2) -> StaticVec<Pt2, 4> {
+    tube_neighbors(grid, from)
+        .into_iter()
+        .filter(|nbr| tube_neighbors(grid, *nbr).contains(&from))
+        .collect()
+}
+
+fn find(grid: &Grid, tile: Tile) -> Option<Pt2> {
     for row in 0..grid.height {
         for col in 0..grid.width {
-            if grid.at((row, col)) == Some(b'S') {
+            if grid.at((row, col)) == Some(tile) {
                 return Some((row, col));
             }
         }
     }
     None
 }
-
-// TODO: make a faster set
-type Set = StaticVec<Pt2, 32768>;
-// TODO: add a range-contains
-type Queue = StaticVec<(Pt2, i32), 32768>;
 
 fn find_loop(grid: &Grid, start: Pt2) -> Option<Set> {
     let mut q = Queue::empty();
@@ -108,7 +96,7 @@ fn find_loop(grid: &Grid, start: Pt2) -> Option<Set> {
     while qi < q.len() {
         let (cur, dist) = q[qi];
         qi += 1;
-        let nbrs = connections(&grid, cur);
+        let nbrs = tube_connections(&grid, cur);
         for nbr in nbrs {
             if q.contains(&(nbr, dist + 1)) {
                 v.push(nbr);
@@ -124,173 +112,67 @@ fn find_loop(grid: &Grid, start: Pt2) -> Option<Set> {
     None
 }
 
-pub fn part1(input: &str) -> i32 {
-    let grid = parse(input);
-    let start = find_start(&grid).unwrap();
-    let looop = find_loop(&grid, start).unwrap();
-    looop.len() as i32 / 2
-}
-
-fn explore(grid: &Grid, looop: &Set, from: Pt2, v: &mut Set) -> i32 {
-    let mut area = 1;
+fn explore(grid: &Grid, looop: &Set, from: Pt2, v: &mut Set) {
     for dir in [Dir::Left, Dir::Right, Dir::Above, Dir::Below] {
         let nbr = go(from, dir);
-        if v.contains(&nbr) {
-            continue;
-        }
-        if looop.contains(&nbr) {
+        if v.contains(&nbr) || looop.contains(&nbr) {
             continue;
         }
         v.push(nbr);
-        area += explore(grid, looop, nbr, v);
+        explore(grid, looop, nbr, v);
     }
-    area
 }
 
-fn infer(grid: &Grid, pt: Pt2) -> Option<Tile> {
-    match grid.at(pt) {
-        Some(b'S') => {
-            let dirs = connections(grid, pt);
-            if dirs.contains(&go(pt, Dir::Above)) && dirs.contains(&go(pt, Dir::Below)) {
-                Some(b'|')
-            } else if dirs.contains(&go(pt, Dir::Left))
-                && dirs.contains(&go(pt, Dir::Right))
-            {
-                Some(b'-')
-            } else if dirs.contains(&go(pt, Dir::Below))
-                && dirs.contains(&go(pt, Dir::Right))
-            {
-                Some(b'F')
-            } else if dirs.contains(&go(pt, Dir::Below))
-                && dirs.contains(&go(pt, Dir::Left))
-            {
-                Some(b'7')
-            } else if dirs.contains(&go(pt, Dir::Above))
-                && dirs.contains(&go(pt, Dir::Left))
-            {
-                Some(b'J')
-            } else {
-                assert!(
-                    dirs.contains(&go(pt, Dir::Above))
-                        && dirs.contains(&go(pt, Dir::Right))
-                );
-                Some(b'L')
-            }
-        }
-        tile => tile,
+fn interior_neighbors(grid: &Grid, prev: Pt2, cur: Pt2) -> StaticVec<Pt2, 4> {
+    use Dir::*;
+    match grid.at(cur) {
+        Some(b'F') if prev.1 > cur.1 => StaticVec::from([go(cur, Above), go(cur, Left)]),
+        Some(b'J') if prev.1 < cur.1 => StaticVec::from([go(cur, Below), go(cur, Right)]),
+        Some(b'7') if prev.0 > cur.0 => StaticVec::from([go(cur, Above), go(cur, Right)]),
+        Some(b'L') if prev.0 < cur.0 => StaticVec::from([go(cur, Left), go(cur, Below)]),
+        Some(b'|') if prev.0 < cur.0 => StaticVec::from([go(cur, Left)]),
+        Some(b'|') if prev.0 > cur.0 => StaticVec::from([go(cur, Right)]),
+        Some(b'-') if prev.1 < cur.1 => StaticVec::from([go(cur, Below)]),
+        Some(b'-') if prev.1 > cur.1 => StaticVec::from([go(cur, Above)]),
+        _ => StaticVec::empty(),
     }
 }
 
 fn interior_area(grid: &Grid, looop: &Set) -> i32 {
-    let start = *looop
-        .iter()
-        .min_by(|(row1, col1), (row2, col2)| {
-            let dr = row1.cmp(row2);
-            if dr == Ordering::Equal {
-                col1.cmp(col2)
-            } else {
-                dr
-            }
-        })
-        .unwrap();
-
-    let mut area = 0;
+    let start =
+        *looop.iter().min_by(|(r1, c1), (r2, c2)| r1.cmp(r2).then(c1.cmp(c2))).unwrap();
     let mut v = Set::empty();
-
-    /*
-    for row in 0..grid.height {
-        for col in 0..grid.width {
-            print!(
-                "{}",
-                if looop.contains(&(row, col)) {
-                    grid.at((row, col)).unwrap() as char
-                } else {
-                    '.'
-                }
-            );
-        }
-        println!();
-    }
-    println!();
-    */
-
     let (mut prev, mut cur) = (start, start);
     while cur != start || prev == start {
-        let mut insides = StaticVec::<Pt2, 4>::empty();
-        let tile = infer(grid, cur);
-        if let Some(b'S') = grid.at(cur) {
-            println!("S => {:?}", tile.unwrap() as char);
-        }
-        match tile {
-            Some(b'F') => {
-                if prev.1 > cur.1 {
-                    insides.push(go(cur, Dir::Above));
-                    insides.push(go(cur, Dir::Left));
-                }
-            }
-            Some(b'J') => {
-                if prev.1 < cur.1 {
-                    insides.push(go(cur, Dir::Below));
-                    insides.push(go(cur, Dir::Right));
-                }
-            }
-            Some(b'7') => {
-                if prev.0 > cur.0 {
-                    insides.push(go(cur, Dir::Above));
-                    insides.push(go(cur, Dir::Right));
-                }
-            }
-            Some(b'L') => {
-                if prev.0 < cur.0 {
-                    insides.push(go(cur, Dir::Left));
-                    insides.push(go(cur, Dir::Below));
-                }
-            }
-            Some(b'|') => {
-                if prev.0 < cur.0 {
-                    insides.push(go(cur, Dir::Left));
-                } else if prev.0 > cur.0 {
-                    insides.push(go(cur, Dir::Right));
-                }
-            }
-            Some(b'-') => {
-                if prev.1 < cur.1 {
-                    insides.push(go(cur, Dir::Below));
-                } else if prev.1 > cur.1 {
-                    insides.push(go(cur, Dir::Above));
-                }
-            }
-            _ => {}
-        };
-        for pt in insides {
+        for pt in interior_neighbors(grid, prev, cur) {
             if !v.contains(&pt) && !looop.contains(&pt) {
                 v.push(pt);
-                area += explore(grid, looop, pt, &mut v);
+                explore(grid, looop, pt, &mut v);
             }
         }
-
-        let next =
-            connections(grid, cur).into_iter().filter(|nbr| *nbr != prev).next().unwrap();
+        let nbrs = tube_connections(grid, cur);
+        let next = nbrs.into_iter().filter(|nbr| *nbr != prev).next().unwrap();
         (prev, cur) = (cur, next);
     }
+    v.len() as i32
+}
 
-    /*
-    for row in 0..grid.height {
-        for col in 0..grid.width {
-            print!("{}", if v.contains(&(row, col)) { 'X' } else { '.' });
-        }
-        println!();
-    }
-    println!();
-    */
+fn parse(input: &str) -> Grid {
+    let width = input.lines().next().unwrap().len() as i32;
+    let height = input.lines().count() as i32;
+    Grid { data: input.as_bytes(), width, height }
+}
 
-    assert_eq!(area as usize, v.len());
-    area
+pub fn part1(input: &str) -> i32 {
+    let grid = parse(input);
+    let start = find(&grid, b'S').unwrap();
+    let looop = find_loop(&grid, start).unwrap();
+    looop.len() as i32 / 2
 }
 
 pub fn part2(input: &str) -> i32 {
     let grid = parse(input);
-    let start = find_start(&grid).unwrap();
+    let start = find(&grid, b'S').unwrap();
     let looop = find_loop(&grid, start).unwrap();
     interior_area(&grid, &looop)
 }
