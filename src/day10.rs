@@ -384,10 +384,9 @@ L7JLJL-JLJLJL--JLJ.L
     }
 
     #[test]
-    #[ignore]
     fn test_real() {
         let input = include_str!("../inputs/day10.txt");
         assert_eq!(part1(input), 7102);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 363);
     }
 }
