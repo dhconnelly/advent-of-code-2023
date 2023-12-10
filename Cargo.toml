@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+heapless = "0.8.0"
 lazy_static = "1.4.0"
 libc-print = "0.1.22"
 once_cell = "1.18.0"

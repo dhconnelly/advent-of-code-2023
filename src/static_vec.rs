@@ -50,12 +50,6 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
     }
 }
 
-impl<T: Default + Copy + Ord, const N: usize> StaticVec<T, N> {
-    pub fn binary_search(&self, key: &T) -> Option<usize> {
-        self.data[..self.len].binary_search(key).ok()
-    }
-}
-
 impl<T: Default + Copy + PartialEq, const N: usize> StaticVec<T, N> {
     pub fn contains(&self, t: &T) -> bool {
         self.data[..self.len].contains(t)

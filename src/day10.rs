@@ -1,11 +1,10 @@
 use crate::static_vec::StaticVec;
+use heapless::{Deque, FnvIndexSet};
 
 type Tile = u8;
 type Pt2 = (i32, i32);
-// TODO: make a faster set
-type Set = StaticVec<Pt2, 32768>;
-// TODO: add a range-contains
-type Queue = StaticVec<(Pt2, i32), 32768>;
+type Queue<T> = Deque<T, 1096>;
+type Set<T> = FnvIndexSet<T, 16384>;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 enum Dir {
@@ -14,6 +13,15 @@ enum Dir {
     Below,
     Left,
     Right,
+}
+
+fn go((row, col): Pt2, dir: Dir) -> Pt2 {
+    match dir {
+        Dir::Left => (row, col - 1),
+        Dir::Right => (row, col + 1),
+        Dir::Above => (row - 1, col),
+        Dir::Below => (row + 1, col),
+    }
 }
 
 #[derive(Debug)]
@@ -48,22 +56,11 @@ fn tube_directions(from: Tile) -> StaticVec<Dir, 4> {
     }
 }
 
-fn go((row, col): Pt2, dir: Dir) -> Pt2 {
-    match dir {
-        Dir::Left => (row, col - 1),
-        Dir::Right => (row, col + 1),
-        Dir::Above => (row - 1, col),
-        Dir::Below => (row + 1, col),
-    }
-}
-
 fn tube_neighbors(grid: &Grid, from: Pt2) -> StaticVec<Pt2, 4> {
-    let tile = match grid.at(from) {
-        None => return StaticVec::empty(),
-        Some(tile) => tile,
-    };
-    tube_directions(tile)
+    grid.at(from)
+        .map(tube_directions)
         .into_iter()
+        .flatten()
         .map(|dir| go(from, dir))
         .filter(|pt| grid.at(*pt).is_some())
         .collect()
@@ -87,39 +84,23 @@ fn find(grid: &Grid, tile: Tile) -> Option<Pt2> {
     None
 }
 
-fn find_loop(grid: &Grid, start: Pt2) -> Option<Set> {
-    let mut q = Queue::empty();
-    let mut v = Set::empty();
-    q.push((start, 0));
-    v.push(start);
-    let mut qi = 0;
-    while qi < q.len() {
-        let (cur, dist) = q[qi];
-        qi += 1;
+fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>) {
+    let mut q = Queue::new();
+    q.push_back((start, 0)).unwrap();
+    v.insert(start).unwrap();
+    while let Some(front @ (cur, dist)) = q.pop_front() {
         let nbrs = tube_connections(&grid, cur);
         for nbr in nbrs {
-            if q.contains(&(nbr, dist + 1)) {
-                v.push(nbr);
-                return Some(v);
+            if q.front() == Some(&front) {
+                v.insert(nbr).unwrap();
+                return;
             }
             if v.contains(&nbr) {
                 continue;
             }
-            v.push(nbr);
-            q.push((nbr, dist + 1));
+            v.insert(nbr).unwrap();
+            q.push_back((nbr, dist + 1)).unwrap();
         }
-    }
-    None
-}
-
-fn explore(grid: &Grid, looop: &Set, from: Pt2, v: &mut Set) {
-    for dir in [Dir::Left, Dir::Right, Dir::Above, Dir::Below] {
-        let nbr = go(from, dir);
-        if v.contains(&nbr) || looop.contains(&nbr) {
-            continue;
-        }
-        v.push(nbr);
-        explore(grid, looop, nbr, v);
     }
 }
 
@@ -138,15 +119,26 @@ fn interior_neighbors(grid: &Grid, prev: Pt2, cur: Pt2) -> StaticVec<Pt2, 4> {
     }
 }
 
-fn interior_area(grid: &Grid, looop: &Set) -> i32 {
+fn explore(grid: &Grid, looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>) {
+    for dir in [Dir::Left, Dir::Right, Dir::Above, Dir::Below] {
+        let nbr = go(from, dir);
+        if v.contains(&nbr) || looop.contains(&nbr) {
+            continue;
+        }
+        v.insert(nbr).unwrap();
+        explore(grid, looop, nbr, v);
+    }
+}
+
+fn interior_area(grid: &Grid, looop: &Set<Pt2>) -> i32 {
     let start =
         *looop.iter().min_by(|(r1, c1), (r2, c2)| r1.cmp(r2).then(c1.cmp(c2))).unwrap();
-    let mut v = Set::empty();
+    let mut v = Set::new();
     let (mut prev, mut cur) = (start, start);
     while cur != start || prev == start {
         for pt in interior_neighbors(grid, prev, cur) {
             if !v.contains(&pt) && !looop.contains(&pt) {
-                v.push(pt);
+                v.insert(pt).unwrap();
                 explore(grid, looop, pt, &mut v);
             }
         }
@@ -166,14 +158,16 @@ fn parse(input: &str) -> Grid {
 pub fn part1(input: &str) -> i32 {
     let grid = parse(input);
     let start = find(&grid, b'S').unwrap();
-    let looop = find_loop(&grid, start).unwrap();
+    let mut looop = Set::new();
+    find_loop(&grid, start, &mut looop);
     looop.len() as i32 / 2
 }
 
 pub fn part2(input: &str) -> i32 {
     let grid = parse(input);
     let start = find(&grid, b'S').unwrap();
-    let looop = find_loop(&grid, start).unwrap();
+    let mut looop = Set::new();
+    find_loop(&grid, start, &mut looop);
     interior_area(&grid, &looop)
 }
 
