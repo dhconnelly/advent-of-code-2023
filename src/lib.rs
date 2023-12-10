@@ -9,6 +9,7 @@ pub mod day6;
 pub mod day7;
 pub mod day8;
 pub mod day9;
+mod lines;
 mod static_vec;
 
 #[macro_use]

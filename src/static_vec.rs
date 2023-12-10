@@ -17,6 +17,16 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         self.len += 1;
     }
 
+    pub fn pop(&mut self) -> T {
+        let val = core::mem::take(&mut self.data[self.len - 1]);
+        self.len -= 1;
+        val
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }
@@ -43,6 +53,18 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         f: impl Fn(&T) -> K,
     ) -> Option<usize> {
         self.data[..self.len].binary_search_by_key(t, f).ok()
+    }
+}
+
+impl<T: Default + Copy + Ord, const N: usize> StaticVec<T, N> {
+    pub fn binary_search(&self, key: &T) -> Option<usize> {
+        self.data[..self.len].binary_search(key).ok()
+    }
+}
+
+impl<T: Default + Copy + PartialEq, const N: usize> StaticVec<T, N> {
+    pub fn contains(&self, t: &T) -> bool {
+        self.data[..self.len].contains(t)
     }
 }
 

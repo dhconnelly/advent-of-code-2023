@@ -1,34 +1,10 @@
-use core::{iter::Iterator, ops::Range, str::Lines};
+use crate::lines::{windows, LineWindow};
+use core::{iter::Iterator, ops::Range};
 use regex::{CaptureMatches, Match, Regex};
 
 lazy_static! {
     static ref NUM_RE: Regex = Regex::new(r"\d+").unwrap();
     static ref SYM_RE: Regex = Regex::new(r"[^.\d]").unwrap();
-}
-
-// Iterator for (above, cur, below) line windows
-
-type LineWindow<'a> = (Option<&'a str>, &'a str, Option<&'a str>);
-
-struct Windows<'a> {
-    lines: Lines<'a>,
-    buf: [Option<&'a str>; 2],
-}
-
-impl<'a> Iterator for Windows<'a> {
-    type Item = LineWindow<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let window = (self.buf[0].take(), self.buf[1].take()?, self.lines.next());
-        self.buf = [Some(window.1), window.2];
-        Some(window)
-    }
-}
-
-fn windows(input: &str) -> Windows {
-    let mut lines = input.lines();
-    let buf = [None, lines.next()];
-    Windows { lines, buf }
 }
 
 // Iterator for matches of a pattern around a given string
