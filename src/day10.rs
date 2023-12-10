@@ -57,14 +57,15 @@ impl Grid<'_> {
         }
     }
 
-    fn neighbors(&self, from: Pt2) -> StaticVec<Dir, 4> {
+    fn neighbors(&self, from: Pt2) -> StaticVec<Pt2, 4> {
         let tile = match self.at(from) {
             None => return StaticVec::empty(),
             Some(tile) => tile,
         };
         dirs_from(tile)
             .into_iter()
-            .filter(|dir| self.at(go(from, *dir)).is_some())
+            .map(|dir| go(from, dir))
+            .filter(|pt| self.at(*pt).is_some())
             .collect()
     }
 }
@@ -78,14 +79,7 @@ fn parse(input: &str) -> Grid {
 fn connections(grid: &Grid, from: Pt2) -> StaticVec<Pt2, 4> {
     grid.neighbors(from)
         .into_iter()
-        .map(|dir| go(from, dir))
-        .filter(|nbr| {
-            grid.neighbors(*nbr)
-                .into_iter()
-                .map(|dir| go(*nbr, dir))
-                .collect::<StaticVec<Pt2, 4>>()
-                .contains(&from)
-        })
+        .filter(|nbr| grid.neighbors(*nbr).contains(&from))
         .collect()
 }
 
@@ -139,7 +133,8 @@ pub fn part1(input: &str) -> i32 {
 
 fn explore(grid: &Grid, looop: &Set, from: Pt2, v: &mut Set) -> i32 {
     let mut area = 1;
-    for nbr in grid.neighbors(from).into_iter().map(|dir| go(from, dir)) {
+    for dir in [Dir::Left, Dir::Right, Dir::Above, Dir::Below] {
+        let nbr = go(from, dir);
         if v.contains(&nbr) {
             continue;
         }
@@ -155,19 +150,30 @@ fn explore(grid: &Grid, looop: &Set, from: Pt2, v: &mut Set) -> i32 {
 fn infer(grid: &Grid, pt: Pt2) -> Option<Tile> {
     match grid.at(pt) {
         Some(b'S') => {
-            let dirs = grid.neighbors(pt);
-            if dirs.contains(&Dir::Above) && dirs.contains(&Dir::Below) {
+            let dirs = connections(grid, pt);
+            if dirs.contains(&go(pt, Dir::Above)) && dirs.contains(&go(pt, Dir::Below)) {
                 Some(b'|')
-            } else if dirs.contains(&Dir::Left) && dirs.contains(&Dir::Right) {
+            } else if dirs.contains(&go(pt, Dir::Left))
+                && dirs.contains(&go(pt, Dir::Right))
+            {
                 Some(b'-')
-            } else if dirs.contains(&Dir::Below) && dirs.contains(&Dir::Right) {
+            } else if dirs.contains(&go(pt, Dir::Below))
+                && dirs.contains(&go(pt, Dir::Right))
+            {
                 Some(b'F')
-            } else if dirs.contains(&Dir::Below) && dirs.contains(&Dir::Left) {
+            } else if dirs.contains(&go(pt, Dir::Below))
+                && dirs.contains(&go(pt, Dir::Left))
+            {
                 Some(b'7')
-            } else if dirs.contains(&Dir::Above) && dirs.contains(&Dir::Left) {
+            } else if dirs.contains(&go(pt, Dir::Above))
+                && dirs.contains(&go(pt, Dir::Left))
+            {
                 Some(b'J')
             } else {
-                assert!(dirs.contains(&Dir::Above) && dirs.contains(&Dir::Right));
+                assert!(
+                    dirs.contains(&go(pt, Dir::Above))
+                        && dirs.contains(&go(pt, Dir::Right))
+                );
                 Some(b'L')
             }
         }
@@ -191,6 +197,7 @@ fn interior_area(grid: &Grid, looop: &Set) -> i32 {
     let mut area = 0;
     let mut v = Set::empty();
 
+    /*
     for row in 0..grid.height {
         for col in 0..grid.width {
             print!(
@@ -205,11 +212,15 @@ fn interior_area(grid: &Grid, looop: &Set) -> i32 {
         println!();
     }
     println!();
+    */
 
     let (mut prev, mut cur) = (start, start);
     while cur != start || prev == start {
         let mut insides = StaticVec::<Pt2, 4>::empty();
         let tile = infer(grid, cur);
+        if let Some(b'S') = grid.at(cur) {
+            println!("S => {:?}", tile.unwrap() as char);
+        }
         match tile {
             Some(b'F') => {
                 if prev.1 > cur.1 {
@@ -238,14 +249,14 @@ fn interior_area(grid: &Grid, looop: &Set) -> i32 {
             Some(b'|') => {
                 if prev.0 < cur.0 {
                     insides.push(go(cur, Dir::Left));
-                } else {
+                } else if prev.0 > cur.0 {
                     insides.push(go(cur, Dir::Right));
                 }
             }
             Some(b'-') => {
                 if prev.1 < cur.1 {
                     insides.push(go(cur, Dir::Below));
-                } else {
+                } else if prev.1 > cur.1 {
                     insides.push(go(cur, Dir::Above));
                 }
             }
@@ -263,6 +274,7 @@ fn interior_area(grid: &Grid, looop: &Set) -> i32 {
         (prev, cur) = (cur, next);
     }
 
+    /*
     for row in 0..grid.height {
         for col in 0..grid.width {
             print!("{}", if v.contains(&(row, col)) { 'X' } else { '.' });
@@ -270,7 +282,9 @@ fn interior_area(grid: &Grid, looop: &Set) -> i32 {
         println!();
     }
     println!();
+    */
 
+    assert_eq!(area as usize, v.len());
     area
 }
 
