@@ -25,6 +25,14 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         self.len
     }
 
+    pub fn insert(&mut self, i: usize, t: T) {
+        for j in (i + 1..self.len + 1).rev() {
+            self.data[j] = self.data[j - 1];
+        }
+        self.data[i] = t;
+        self.len += 1;
+    }
+
     pub fn empty() -> Self {
         Self { data: [T::default(); N], len: 0 }
     }
@@ -80,6 +88,12 @@ impl<T: Default + Copy, const N: usize> IntoIterator for StaticVec<T, N> {
 impl<T: Default + Copy + Debug, const N: usize> Debug for StaticVec<T, N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         (&self.data[..self.len]).fmt(f)
+    }
+}
+
+impl<T: Default + Copy, const N: usize> Default for StaticVec<T, N> {
+    fn default() -> Self {
+        Self::empty()
     }
 }
 
