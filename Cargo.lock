@@ -10,7 +10,6 @@ dependencies = [
  "heapless",
  "lazy_static",
  "libc-print",
- "once_cell",
  "regex",
  "thiserror",
 ]

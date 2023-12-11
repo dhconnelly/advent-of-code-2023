@@ -2,7 +2,7 @@ use core::{
     cmp::{Ord, Ordering},
     fmt::Debug,
     iter::Take,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, Range},
 };
 
 #[derive(Clone, Copy)]
@@ -23,14 +23,6 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
 
     pub fn len(&self) -> usize {
         self.len
-    }
-
-    pub fn insert(&mut self, i: usize, t: T) {
-        for j in (i + 1..self.len + 1).rev() {
-            self.data[j] = self.data[j - 1];
-        }
-        self.data[i] = t;
-        self.len += 1;
     }
 
     pub fn empty() -> Self {
@@ -68,6 +60,13 @@ impl<T: Default + Copy, const N: usize> Index<usize> for StaticVec<T, N> {
     type Output = T;
     fn index(&self, index: usize) -> &Self::Output {
         &(self.data[..self.len])[index]
+    }
+}
+
+impl<T: Default + Copy, const N: usize> Index<Range<usize>> for StaticVec<T, N> {
+    type Output = <[T; N] as Index<Range<usize>>>::Output;
+    fn index(&self, range: Range<usize>) -> &Self::Output {
+        &self.data[range]
     }
 }
 

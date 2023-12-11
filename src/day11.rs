@@ -1,8 +1,4 @@
 use crate::static_vec::StaticVec;
-use heapless::{
-    binary_heap::{BinaryHeap, Min},
-    FnvIndexMap, FnvIndexSet,
-};
 
 #[derive(Clone, Copy, PartialEq, Default, Debug)]
 enum Tile {
@@ -40,60 +36,14 @@ fn expand(grid: &Grid, multiplier: i64) -> Weights {
     (row_weights, col_weights)
 }
 
-fn neighbors(grid: &Grid, (row, col): Pt2) -> StaticVec<Pt2, 4> {
-    let mut nbrs = StaticVec::empty();
-    if row > 0 {
-        nbrs.push((row - 1, col));
-    }
-    if row < grid.len() as u16 - 1 {
-        nbrs.push((row + 1, col));
-    }
-    if col > 0 {
-        nbrs.push((row, col - 1));
-    }
-    if col < grid[row as usize].len() as u16 - 1 {
-        nbrs.push((row, col + 1));
-    }
-    nbrs
-}
-
-fn step_dist(
-    (row_weights, col_weights): &Weights,
-    (from_row, from_col): Pt2,
-    (to_row, _): Pt2,
-) -> i64 {
-    if from_row == to_row {
-        col_weights[from_col as usize]
-    } else {
-        row_weights[from_row as usize]
-    }
-}
-
-fn shortest_paths(
-    grid: &Grid,
-    weights: &Weights,
-    from: Pt2,
-) -> FnvIndexMap<Pt2, i64, 4096> {
-    let mut q = BinaryHeap::<(i64, Pt2), Min, 4096>::new();
-    let mut v = FnvIndexSet::<Pt2, 32768>::new();
-    let mut dists = FnvIndexMap::new();
-    q.push((0, from)).unwrap();
-    v.insert(from).unwrap();
-    while let Some((dist, cur)) = q.pop() {
-        for nbr in neighbors(grid, cur) {
-            if v.contains(&nbr) {
-                continue;
-            }
-            let (row, col) = (nbr.0 as usize, nbr.1 as usize);
-            let nbr_dist = dist + step_dist(weights, cur, nbr);
-            if grid[row][col] == Tile::Galaxy {
-                dists.insert(nbr, nbr_dist).unwrap();
-            }
-            v.insert(nbr).unwrap();
-            q.push((nbr_dist, nbr)).unwrap();
-        }
-    }
-    dists
+fn shortest_path(weights: &Weights, from: Pt2, to: Pt2) -> i64 {
+    let (from_row, from_col) = (from.0 as usize, from.1 as usize);
+    let (to_row, to_col) = (to.0 as usize, to.1 as usize);
+    let row_dist: i64 =
+        weights.0[from_row.min(to_row) + 1..from_row.max(to_row) + 1].iter().sum();
+    let col_dist: i64 =
+        weights.1[from_col.min(to_col) + 1..from_col.max(to_col) + 1].iter().sum();
+    row_dist + col_dist
 }
 
 fn sum_shortest_paths(input: &str, multiplier: i64) -> i64 {
@@ -112,10 +62,9 @@ fn sum_shortest_paths(input: &str, multiplier: i64) -> i64 {
     let mut sum = 0;
     for i in 0..galaxies.len() - 1 {
         let from = galaxies[i];
-        let dists = shortest_paths(&grid, &weights, from);
         for j in i + 1..galaxies.len() {
             let to = galaxies[j];
-            sum += dists[&to];
+            sum += shortest_path(&weights, from, to);
         }
     }
     sum
