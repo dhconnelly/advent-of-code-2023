@@ -1,10 +1,11 @@
+use crate::static_queue::StaticQueue;
 use crate::static_vec::StaticVec;
-use heapless::{Deque, FnvIndexSet};
+use heapless::FnvIndexSet;
 
 type Tile = u8;
 type Pt2 = (i32, i32);
-type Queue<T> = Deque<T, 1096>;
 type Set<T> = FnvIndexSet<T, 16384>;
+type Queue<T> = StaticQueue<T, 16384>;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 enum Dir {
@@ -86,7 +87,7 @@ fn find(grid: &Grid, tile: Tile) -> Option<Pt2> {
 
 fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>) {
     let mut q = Queue::new();
-    q.push_back((start, 0)).unwrap();
+    q.push_back((start, 0));
     v.insert(start).unwrap();
     while let Some(front @ (cur, dist)) = q.pop_front() {
         let nbrs = tube_connections(&grid, cur);
@@ -99,7 +100,7 @@ fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>) {
                 continue;
             }
             v.insert(nbr).unwrap();
-            q.push_back((nbr, dist + 1)).unwrap();
+            q.push_back((nbr, dist + 1));
         }
     }
 }
