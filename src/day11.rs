@@ -1,9 +1,8 @@
-use heapless::{Deque, FnvIndexMap, FnvIndexSet};
-use libc_print::std_name::*;
-
 use crate::static_vec::StaticVec;
-
-type Pt2 = (u16, u16);
+use heapless::{
+    binary_heap::{BinaryHeap, Min},
+    FnvIndexMap, FnvIndexSet,
+};
 
 #[derive(Clone, Copy, PartialEq, Default, Debug)]
 enum Tile {
@@ -12,7 +11,9 @@ enum Tile {
     Galaxy,
 }
 
+type Pt2 = (u16, u16);
 type Grid<'a> = StaticVec<StaticVec<Tile, 256>, 256>;
+type Weights = (StaticVec<i64, 256>, StaticVec<i64, 256>);
 
 fn parse(input: &str, grid: &mut Grid) {
     for (i, line) in input.lines().enumerate() {
@@ -27,26 +28,16 @@ fn parse(input: &str, grid: &mut Grid) {
     }
 }
 
-fn expand(grid: &mut Grid) {
-    let mut i = 0;
-    while i < grid.len() {
-        if grid[i].iter().all(|t| *t == Tile::Empty) {
-            grid.insert(i, grid[i]);
-            i += 1;
-        }
-        i += 1;
-    }
-    let mut j = 0;
-    while j < grid[0].len() {
-        if (0..grid.len()).all(|i| grid[i][j] == Tile::Empty) {
-            for i in 0..grid.len() {
-                let t = grid[i][j];
-                grid[i].insert(j, t);
-            }
-            j += 1;
-        }
-        j += 1;
-    }
+fn expand(grid: &Grid, multiplier: i64) -> Weights {
+    let row_weights = grid
+        .iter()
+        .map(|row| if row.iter().all(|t| *t == Tile::Empty) { multiplier } else { 1 })
+        .collect();
+    let is_col_empty = |j: usize| (0..grid.len()).all(|i| grid[i][j] == Tile::Empty);
+    let col_weights = (0..grid[0].len())
+        .map(|j| if is_col_empty(j) { multiplier } else { 1 })
+        .collect();
+    (row_weights, col_weights)
 }
 
 fn neighbors(grid: &Grid, (row, col): Pt2) -> StaticVec<Pt2, 4> {
@@ -66,33 +57,49 @@ fn neighbors(grid: &Grid, (row, col): Pt2) -> StaticVec<Pt2, 4> {
     nbrs
 }
 
-fn shortest_paths(grid: &Grid, from: Pt2) -> FnvIndexMap<Pt2, i32, 4096> {
-    let mut q = Deque::<(Pt2, i32), 4096>::new();
+fn step_dist(
+    (row_weights, col_weights): &Weights,
+    (from_row, from_col): Pt2,
+    (to_row, _): Pt2,
+) -> i64 {
+    if from_row == to_row {
+        col_weights[from_col as usize]
+    } else {
+        row_weights[from_row as usize]
+    }
+}
+
+fn shortest_paths(
+    grid: &Grid,
+    weights: &Weights,
+    from: Pt2,
+) -> FnvIndexMap<Pt2, i64, 4096> {
+    let mut q = BinaryHeap::<(i64, Pt2), Min, 4096>::new();
     let mut v = FnvIndexSet::<Pt2, 32768>::new();
     let mut dists = FnvIndexMap::new();
-    q.push_front((from, 0)).unwrap();
+    q.push((0, from)).unwrap();
     v.insert(from).unwrap();
-    while let Some((cur, dist)) = q.pop_front() {
+    while let Some((dist, cur)) = q.pop() {
         for nbr in neighbors(grid, cur) {
             if v.contains(&nbr) {
                 continue;
             }
             let (row, col) = (nbr.0 as usize, nbr.1 as usize);
+            let nbr_dist = dist + step_dist(weights, cur, nbr);
             if grid[row][col] == Tile::Galaxy {
-                dists.insert(nbr, dist + 1).unwrap();
+                dists.insert(nbr, nbr_dist).unwrap();
             }
             v.insert(nbr).unwrap();
-            q.push_back((nbr, dist + 1)).unwrap();
+            q.push((nbr_dist, nbr)).unwrap();
         }
     }
     dists
 }
 
-pub fn part1(input: &str) -> i32 {
+fn sum_shortest_paths(input: &str, multiplier: i64) -> i64 {
     let mut grid = Grid::empty();
     parse(input, &mut grid);
-    expand(&mut grid);
-    let mut sum = 0;
+    let weights = expand(&grid, multiplier);
     let mut galaxies = StaticVec::<Pt2, 4096>::empty();
     for i in 0..grid.len() {
         for j in 0..grid[i].len() {
@@ -102,9 +109,10 @@ pub fn part1(input: &str) -> i32 {
             }
         }
     }
+    let mut sum = 0;
     for i in 0..galaxies.len() - 1 {
         let from = galaxies[i];
-        let dists = shortest_paths(&grid, from);
+        let dists = shortest_paths(&grid, &weights, from);
         for j in i + 1..galaxies.len() {
             let to = galaxies[j];
             sum += dists[&to];
@@ -113,8 +121,12 @@ pub fn part1(input: &str) -> i32 {
     sum
 }
 
+pub fn part1(input: &str) -> i64 {
+    sum_shortest_paths(input, 2)
+}
+
 pub fn part2(input: &str) -> i64 {
-    0
+    sum_shortest_paths(input, 1000000)
 }
 
 #[cfg(test)]
@@ -140,6 +152,7 @@ mod test {
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day11.txt");
-        assert_eq!(part1(input), 0);
+        assert_eq!(part1(input), 9609130);
+        assert_eq!(part2(input), 702152204842);
     }
 }
