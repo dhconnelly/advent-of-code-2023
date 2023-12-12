@@ -20,6 +20,7 @@ impl From<u8> for Row {
 }
 
 type Vec<T> = StaticVec<T, 128>;
+type Matrix<T> = Vec<Vec<T>>;
 
 #[derive(Clone, Copy, PartialEq, Default)]
 enum Outcome {
@@ -30,71 +31,63 @@ enum Outcome {
 }
 
 impl Outcome {
-    fn unwrap(&self) -> i64 {
+    fn value(&self) -> Option<i64> {
         if let Self::Valid(outcome) = self {
-            *outcome
+            Some(*outcome)
         } else {
-            panic!("invalid outcome");
+            None
         }
+    }
+
+    fn unwrap(&self) -> i64 {
+        self.value().unwrap()
     }
 
     fn unwrap_or(&self, value: i64) -> i64 {
-        if let Self::Valid(outcome) = self {
-            *outcome
-        } else {
-            value
-        }
+        self.value().unwrap_or(value)
     }
 }
 
-fn arrangements((rows, lens): (Vec<Row>, Vec<usize>)) -> i64 {
-    let mut mat = Vec::of(Vec::of(Outcome::None));
-    arrangements_at(&rows[..], &lens[..], &mut mat).unwrap()
+fn arrangements_memoized((rows, lens): (Vec<Row>, Vec<usize>)) -> i64 {
+    let mut mat = Matrix::of(Vec::of(Outcome::None));
+    arrangements(&rows[..], &lens[..], &mut mat).unwrap()
 }
 
-fn place(
-    len: usize,
-    rows: &[Row],
-    lens: &[usize],
-    mat: &mut Vec<Vec<Outcome>>,
-) -> Outcome {
+fn place(len: usize, rows: &[Row], lens: &[usize], mat: &mut Matrix<Outcome>) -> Outcome {
     // try to place |len| broken rows
+    // then, make sure we can now skip a working row
     if len > rows.len() {
-        return Outcome::Invalid;
-    }
-    if rows[..len].iter().any(|row| *row == Row::Ok) {
-        return Outcome::Invalid;
-    }
-    // ok, make sure we can now skip a working row
-    if len >= rows.len() {
-        arrangements_at(&rows[len..], lens, mat)
+        Outcome::Invalid
+    } else if rows[..len].iter().any(|row| *row == Row::Ok) {
+        Outcome::Invalid
+    } else if len >= rows.len() {
+        arrangements(&rows[len..], lens, mat)
     } else if rows[len] == Row::Broken {
         Outcome::Invalid
     } else {
-        arrangements_at(&rows[len + 1..], lens, mat)
+        arrangements(&rows[len + 1..], lens, mat)
     }
 }
 
-fn arrangements_at(rows: &[Row], lens: &[usize], mat: &mut Vec<Vec<Outcome>>) -> Outcome {
-    let memo = mat[rows.len()][lens.len()];
-    if memo != Outcome::None {
+fn arrangements(rows: &[Row], lens: &[usize], mat: &mut Matrix<Outcome>) -> Outcome {
+    if let memo @ (Outcome::Valid(_) | Outcome::Invalid) = mat[rows.len()][lens.len()] {
         return memo;
     }
-    let result = match (rows.iter().next(), lens.iter().next()) {
-        (Some(Row::Ok), _) => arrangements_at(&rows[1..], lens, mat),
+    let outcome = match (rows.iter().next(), lens.iter().next()) {
+        (Some(Row::Ok), _) => arrangements(&rows[1..], lens, mat),
         (Some(Row::Broken), None) => Outcome::Invalid,
         (Some(Row::Broken), Some(len)) => place(*len, rows, &lens[1..], mat),
-        (Some(Row::Unknown), None) => arrangements_at(&rows[1..], lens, mat),
+        (Some(Row::Unknown), None) => arrangements(&rows[1..], lens, mat),
         (Some(Row::Unknown), Some(len)) => {
             let here = place(*len, rows, &lens[1..], mat).unwrap_or(0);
-            let there = arrangements_at(&rows[1..], lens, mat).unwrap_or(0);
+            let there = arrangements(&rows[1..], lens, mat).unwrap_or(0);
             Outcome::Valid(here + there)
         }
         (None, Some(_)) => Outcome::Invalid,
         (None, None) => Outcome::Valid(1),
     };
-    mat[rows.len()][lens.len()] = result;
-    result
+    mat[rows.len()][lens.len()] = outcome;
+    outcome
 }
 
 fn parse<'a>(line: &'a str) -> (Vec<Row>, Vec<usize>) {
@@ -105,7 +98,7 @@ fn parse<'a>(line: &'a str) -> (Vec<Row>, Vec<usize>) {
 }
 
 pub fn part1(input: &str) -> i64 {
-    input.lines().map(parse).map(arrangements).sum()
+    input.lines().map(parse).map(arrangements_memoized).sum()
 }
 
 fn expand((mut rows, lens): (Vec<Row>, Vec<usize>)) -> (Vec<Row>, Vec<usize>) {
@@ -117,7 +110,7 @@ fn expand((mut rows, lens): (Vec<Row>, Vec<usize>)) -> (Vec<Row>, Vec<usize>) {
 }
 
 pub fn part2(input: &str) -> i64 {
-    input.lines().map(parse).map(expand).map(arrangements).sum()
+    input.lines().map(parse).map(expand).map(arrangements_memoized).sum()
 }
 
 #[cfg(test)]
@@ -135,7 +128,7 @@ mod test {
 ";
         let expected: StaticVec<i64, 6> = StaticVec::from([1, 4, 1, 1, 4, 10]);
         for (i, line) in input.lines().enumerate() {
-            assert_eq!(arrangements(parse(line)), expected[i]);
+            assert_eq!(arrangements_memoized(parse(line)), expected[i]);
         }
         assert_eq!(part1(input), 21);
         assert_eq!(part2(input), 525152);
