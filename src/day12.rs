@@ -1,14 +1,17 @@
 use crate::static_vec::StaticVec;
 
+type Vec<T> = StaticVec<T, 128>;
+type Matrix<T> = Vec<Vec<T>>;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
-enum Row {
+enum Spring {
     #[default]
     Ok,
     Broken,
     Unknown,
 }
 
-impl From<u8> for Row {
+impl From<u8> for Spring {
     fn from(value: u8) -> Self {
         match value {
             b'.' => Self::Ok,
@@ -18,9 +21,6 @@ impl From<u8> for Row {
         }
     }
 }
-
-type Vec<T> = StaticVec<T, 128>;
-type Matrix<T> = Vec<Vec<T>>;
 
 #[derive(Clone, Copy, PartialEq, Default)]
 enum Outcome {
@@ -48,63 +48,63 @@ impl Outcome {
     }
 }
 
-fn arrangements_memoized((rows, lens): (Vec<Row>, Vec<usize>)) -> i64 {
-    let mut mat = Matrix::of(Vec::of(Outcome::None));
-    arrangements(&rows[..], &lens[..], &mut mat).unwrap()
+fn arrangements_memoized((springs, lens): (Vec<Spring>, Vec<usize>)) -> i64 {
+    let mut m = Matrix::of(Vec::of(Outcome::None));
+    arrangements(&springs[..], &lens[..], &mut m).unwrap()
 }
 
-fn place(len: usize, rows: &[Row], lens: &[usize], mat: &mut Matrix<Outcome>) -> Outcome {
-    // try to place |len| broken rows
-    // then, make sure we can now skip a working row
-    if len > rows.len() {
+fn place(len: usize, springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
+    // try to place |len| broken springs
+    // then, make sure we can now skip a working spring
+    if len > springs.len() {
         Outcome::Invalid
-    } else if rows[..len].iter().any(|row| *row == Row::Ok) {
+    } else if springs[..len].iter().any(|spring| *spring == Spring::Ok) {
         Outcome::Invalid
-    } else if len >= rows.len() {
-        arrangements(&rows[len..], lens, mat)
-    } else if rows[len] == Row::Broken {
+    } else if len >= springs.len() {
+        arrangements(&springs[len..], lens, m)
+    } else if springs[len] == Spring::Broken {
         Outcome::Invalid
     } else {
-        arrangements(&rows[len + 1..], lens, mat)
+        arrangements(&springs[len + 1..], lens, m)
     }
 }
 
-fn arrangements(rows: &[Row], lens: &[usize], mat: &mut Matrix<Outcome>) -> Outcome {
-    if let memo @ (Outcome::Valid(_) | Outcome::Invalid) = mat[rows.len()][lens.len()] {
+fn arrangements(springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
+    if let memo @ (Outcome::Valid(_) | Outcome::Invalid) = m[springs.len()][lens.len()] {
         return memo;
     }
-    let outcome = match (rows.iter().next(), lens.iter().next()) {
-        (Some(Row::Ok), _) => arrangements(&rows[1..], lens, mat),
-        (Some(Row::Broken), None) => Outcome::Invalid,
-        (Some(Row::Broken), Some(len)) => place(*len, rows, &lens[1..], mat),
-        (Some(Row::Unknown), None) => arrangements(&rows[1..], lens, mat),
-        (Some(Row::Unknown), Some(len)) => {
-            let here = place(*len, rows, &lens[1..], mat).unwrap_or(0);
-            let there = arrangements(&rows[1..], lens, mat).unwrap_or(0);
+    let outcome = match (springs.iter().next(), lens.iter().next()) {
+        (Some(Spring::Ok), _) => arrangements(&springs[1..], lens, m),
+        (Some(Spring::Broken), None) => Outcome::Invalid,
+        (Some(Spring::Broken), Some(len)) => place(*len, springs, &lens[1..], m),
+        (Some(Spring::Unknown), None) => arrangements(&springs[1..], lens, m),
+        (Some(Spring::Unknown), Some(len)) => {
+            let here = place(*len, springs, &lens[1..], m).unwrap_or(0);
+            let there = arrangements(&springs[1..], lens, m).unwrap_or(0);
             Outcome::Valid(here + there)
         }
         (None, Some(_)) => Outcome::Invalid,
         (None, None) => Outcome::Valid(1),
     };
-    mat[rows.len()][lens.len()] = outcome;
+    m[springs.len()][lens.len()] = outcome;
     outcome
 }
 
-fn parse<'a>(line: &'a str) -> (Vec<Row>, Vec<usize>) {
-    let (rows, lens) = line.split_once(' ').unwrap();
-    let rows = rows.bytes().map(Row::from).collect();
+fn parse<'a>(line: &'a str) -> (Vec<Spring>, Vec<usize>) {
+    let (springs, lens) = line.split_once(' ').unwrap();
+    let springs = springs.bytes().map(Spring::from).collect();
     let lens = lens.split(',').map(|len| len.parse::<usize>().unwrap()).collect();
-    (rows, lens)
+    (springs, lens)
 }
 
 pub fn part1(input: &str) -> i64 {
     input.lines().map(parse).map(arrangements_memoized).sum()
 }
 
-fn expand((mut rows, lens): (Vec<Row>, Vec<usize>)) -> (Vec<Row>, Vec<usize>) {
-    rows.push(Row::Unknown);
+fn expand((mut springs, lens): (Vec<Spring>, Vec<usize>)) -> (Vec<Spring>, Vec<usize>) {
+    springs.push(Spring::Unknown);
     (
-        rows.into_iter().cycle().take(rows.len() * 5 - 1).collect(),
+        springs.into_iter().cycle().take(springs.len() * 5 - 1).collect(),
         lens.into_iter().cycle().take(lens.len() * 5).collect(),
     )
 }
