@@ -40,9 +40,9 @@ impl Outcome {
     }
 }
 
-fn arrangements_memoized((springs, lens): (Vec<Spring>, Vec<usize>)) -> i64 {
+fn arrangements_memoized(springs: &[Spring], lens: &[usize]) -> i64 {
     let mut m = Matrix::of(Vec::of(Outcome::None));
-    arrangements(&springs[..], &lens[..], &mut m).unwrap_or(0)
+    arrangements(springs, lens, &mut m).unwrap_or(0)
 }
 
 fn place(len: usize, springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
@@ -82,27 +82,50 @@ fn arrangements(springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> 
     outcome
 }
 
-fn parse<'a>(line: &'a str) -> (Vec<Spring>, Vec<usize>) {
-    let (springs, lens) = line.split_once(' ').unwrap();
-    let springs = springs.bytes().map(Spring::from).collect();
-    let lens = lens.split(',').map(|len| len.parse::<usize>().unwrap()).collect();
-    (springs, lens)
+fn parse<'a>(line: &'a str, springs: &mut Vec<Spring>, lens: &mut Vec<usize>) {
+    let (lhs, rhs) = line.split_once(' ').unwrap();
+    for spring in lhs.bytes().map(Spring::from) {
+        springs.push(spring);
+    }
+    for len in rhs.split(',').map(|len| len.parse::<usize>().unwrap()) {
+        lens.push(len);
+    }
+}
+
+fn expand(by: usize, springs: &mut Vec<Spring>, lens: &mut Vec<usize>) {
+    let springs_len = springs.len();
+    let lens_len = lens.len();
+    for _ in 1..by {
+        springs.push(Spring::Unknown);
+        for j in 0..springs_len {
+            springs.push(springs[j]);
+        }
+        for j in 0..lens_len {
+            lens.push(lens[j]);
+        }
+    }
+}
+
+fn sum_arrangements(input: &str, copies: usize) -> i64 {
+    let mut sum = 0;
+    let mut springs = Vec::empty();
+    let mut lens = Vec::empty();
+    for line in input.lines() {
+        springs.clear();
+        lens.clear();
+        parse(line, &mut springs, &mut lens);
+        expand(copies, &mut springs, &mut lens);
+        sum += arrangements_memoized(&springs[..], &lens[..]);
+    }
+    sum
 }
 
 pub fn part1(input: &str) -> i64 {
-    input.lines().map(parse).map(arrangements_memoized).sum()
-}
-
-fn expand((mut springs, lens): (Vec<Spring>, Vec<usize>)) -> (Vec<Spring>, Vec<usize>) {
-    springs.push(Spring::Unknown);
-    (
-        springs.into_iter().cycle().take(springs.len() * 5 - 1).collect(),
-        lens.into_iter().cycle().take(lens.len() * 5).collect(),
-    )
+    sum_arrangements(input, 1)
 }
 
 pub fn part2(input: &str) -> i64 {
-    input.lines().map(parse).map(expand).map(arrangements_memoized).sum()
+    sum_arrangements(input, 5)
 }
 
 #[cfg(test)]
@@ -118,10 +141,6 @@ mod test {
 ????.######..#####. 1,6,5
 ?###???????? 3,2,1
 ";
-        let expected: StaticVec<i64, 6> = StaticVec::from([1, 4, 1, 1, 4, 10]);
-        for (i, line) in input.lines().enumerate() {
-            assert_eq!(arrangements_memoized(parse(line)), expected[i]);
-        }
         assert_eq!(part1(input), 21);
         assert_eq!(part2(input), 525152);
     }

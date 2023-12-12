@@ -21,6 +21,14 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         self.len += 1;
     }
 
+    pub fn pop(&mut self) {
+        self.len -= 1;
+    }
+
+    pub fn clear(&mut self) {
+        self.len = 0
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }
@@ -41,11 +49,7 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         self.data[..self.len].sort_by(cmp);
     }
 
-    pub fn binary_search_by_key<K: Ord>(
-        &self,
-        t: &K,
-        f: impl Fn(&T) -> K,
-    ) -> Option<usize> {
+    pub fn binary_search_by_key<K: Ord>(&self, t: &K, f: impl Fn(&T) -> K) -> Option<usize> {
         self.data[..self.len].binary_search_by_key(t, f).ok()
     }
 }
