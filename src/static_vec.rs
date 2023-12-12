@@ -2,7 +2,7 @@ use core::{
     cmp::{Ord, Ordering},
     fmt::Debug,
     iter::Take,
-    ops::{Index, IndexMut, Range},
+    ops::{Index, IndexMut, Range, RangeFull},
 };
 
 #[derive(Clone, Copy)]
@@ -56,10 +56,23 @@ impl<T: Default + Copy + PartialEq, const N: usize> StaticVec<T, N> {
     }
 }
 
+impl<T: Default + Copy + PartialEq, const N: usize> PartialEq for StaticVec<T, N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len == other.len && (&self[0..self.len]) == (&other[0..other.len])
+    }
+}
+
 impl<T: Default + Copy, const N: usize> Index<usize> for StaticVec<T, N> {
     type Output = T;
     fn index(&self, index: usize) -> &Self::Output {
         &(self.data[..self.len])[index]
+    }
+}
+
+impl<T: Default + Copy, const N: usize> Index<RangeFull> for StaticVec<T, N> {
+    type Output = [T];
+    fn index(&self, _: RangeFull) -> &Self::Output {
+        &self.data[..self.len]
     }
 }
 

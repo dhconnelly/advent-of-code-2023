@@ -1,7 +1,6 @@
 use crate::static_vec::StaticVec;
-use libc_print::std_name::*;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 enum Row {
     #[default]
     Ok,
@@ -22,19 +21,50 @@ impl From<u8> for Row {
 
 type Vec<T> = StaticVec<T, 128>;
 
-fn arrangements((rows, lens): (Vec<Row>, Vec<i64>)) -> i64 {
-    0
+fn arrangements((rows, lens): (Vec<Row>, Vec<usize>)) -> i64 {
+    arrangements_at(&rows[..], &lens[..]).unwrap()
 }
 
-fn arrangements_at(i: usize, rows: &[Row], lens: &[i64]) -> Option<i64> {
-    None
+fn place(len: usize, rows: &[Row], lens: &[usize]) -> Option<i64> {
+    // try to place |len| broken rows
+    if len > rows.len() {
+        return None;
+    }
+    for i in 0..len {
+        if rows[i] == Row::Ok {
+            return None;
+        }
+    }
+    // ok, make sure we can now skip a working row
+    if len >= rows.len() {
+        arrangements_at(&rows[len..], lens)
+    } else if rows[len] == Row::Broken {
+        None
+    } else {
+        arrangements_at(&rows[len + 1..], lens)
+    }
 }
 
-fn parse<'a>(line: &'a str) -> (Vec<Row>, Vec<i64>) {
+fn arrangements_at(rows: &[Row], lens: &[usize]) -> Option<i64> {
+    match (rows.iter().next(), lens.iter().next()) {
+        (Some(Row::Ok), _) => arrangements_at(&rows[1..], lens),
+        (Some(Row::Broken), None) => None,
+        (Some(Row::Broken), Some(len)) => place(*len, rows, &lens[1..]),
+        (Some(Row::Unknown), None) => arrangements_at(&rows[1..], lens),
+        (Some(Row::Unknown), Some(len)) => {
+            let here = place(*len, rows, &lens[1..]).unwrap_or(0);
+            let there = arrangements_at(&rows[1..], lens).unwrap_or(0);
+            Some(here + there)
+        }
+        (None, Some(_)) => None,
+        (None, None) => Some(1),
+    }
+}
+
+fn parse<'a>(line: &'a str) -> (Vec<Row>, Vec<usize>) {
     let (rows, lens) = line.split_once(' ').unwrap();
     let rows = rows.bytes().map(Row::from).collect();
-    let lens = lens.split(',').map(|len| len.parse::<i64>().unwrap()).collect();
-    println!("{:?} {:?}", rows, lens);
+    let lens = lens.split(',').map(|len| len.parse::<usize>().unwrap()).collect();
     (rows, lens)
 }
 
@@ -52,13 +82,17 @@ mod test {
 
     #[test]
     fn test_example() {
-        let input = "#.#.### 1,1,3
-.#...#....###. 1,1,3
-.#.###.#.###### 1,3,1,6
-####.#...#... 4,1,1
-#....######..#####. 1,6,5
-.###.##....# 3,2,1
+        let input = "???.### 1,1,3
+.??..??...?##. 1,1,3
+?#?#?#?#?#?#?#? 1,3,1,6
+????.#...#... 4,1,1
+????.######..#####. 1,6,5
+?###???????? 3,2,1
 ";
+        let expected: StaticVec<i64, 6> = StaticVec::from([1, 4, 1, 1, 4, 10]);
+        for (i, line) in input.lines().enumerate() {
+            assert_eq!(arrangements(parse(line)), expected[i]);
+        }
         assert_eq!(part1(input), 21);
         assert_eq!(part2(input), 0);
     }
