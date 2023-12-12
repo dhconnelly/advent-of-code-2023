@@ -19,13 +19,19 @@ impl From<u8> for Row {
     }
 }
 
-type Vec<T> = StaticVec<T, 1024>;
+type Vec<T> = StaticVec<T, 128>;
 
 fn arrangements((rows, lens): (Vec<Row>, Vec<usize>)) -> i64 {
-    arrangements_at(&rows[..], &lens[..]).unwrap()
+    let mut mat = Vec::of(Vec::of(Some(-1)));
+    arrangements_at(&rows[..], &lens[..], &mut mat).unwrap()
 }
 
-fn place(len: usize, rows: &[Row], lens: &[usize]) -> Option<i64> {
+fn place(
+    len: usize,
+    rows: &[Row],
+    lens: &[usize],
+    mat: &mut Vec<Vec<Option<i64>>>,
+) -> Option<i64> {
     // try to place |len| broken rows
     if len > rows.len() {
         return None;
@@ -37,28 +43,38 @@ fn place(len: usize, rows: &[Row], lens: &[usize]) -> Option<i64> {
     }
     // ok, make sure we can now skip a working row
     if len >= rows.len() {
-        arrangements_at(&rows[len..], lens)
+        arrangements_at(&rows[len..], lens, mat)
     } else if rows[len] == Row::Broken {
         None
     } else {
-        arrangements_at(&rows[len + 1..], lens)
+        arrangements_at(&rows[len + 1..], lens, mat)
     }
 }
 
-fn arrangements_at(rows: &[Row], lens: &[usize]) -> Option<i64> {
-    match (rows.iter().next(), lens.iter().next()) {
-        (Some(Row::Ok), _) => arrangements_at(&rows[1..], lens),
+fn arrangements_at(
+    rows: &[Row],
+    lens: &[usize],
+    mat: &mut Vec<Vec<Option<i64>>>,
+) -> Option<i64> {
+    let memo = mat[rows.len()][lens.len()];
+    if memo != Some(-1) {
+        return memo;
+    }
+    let result = match (rows.iter().next(), lens.iter().next()) {
+        (Some(Row::Ok), _) => arrangements_at(&rows[1..], lens, mat),
         (Some(Row::Broken), None) => None,
-        (Some(Row::Broken), Some(len)) => place(*len, rows, &lens[1..]),
-        (Some(Row::Unknown), None) => arrangements_at(&rows[1..], lens),
+        (Some(Row::Broken), Some(len)) => place(*len, rows, &lens[1..], mat),
+        (Some(Row::Unknown), None) => arrangements_at(&rows[1..], lens, mat),
         (Some(Row::Unknown), Some(len)) => {
-            let here = place(*len, rows, &lens[1..]).unwrap_or(0);
-            let there = arrangements_at(&rows[1..], lens).unwrap_or(0);
+            let here = place(*len, rows, &lens[1..], mat).unwrap_or(0);
+            let there = arrangements_at(&rows[1..], lens, mat).unwrap_or(0);
             Some(here + there)
         }
         (None, Some(_)) => None,
         (None, None) => Some(1),
-    }
+    };
+    mat[rows.len()][lens.len()] = result;
+    result
 }
 
 fn parse<'a>(line: &'a str) -> (Vec<Row>, Vec<usize>) {
@@ -109,6 +125,6 @@ mod test {
     fn test_real() {
         let input = include_str!("../inputs/day12.txt");
         assert_eq!(part1(input), 8419);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 160500973317706);
     }
 }
