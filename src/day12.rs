@@ -31,26 +31,18 @@ enum Outcome {
 }
 
 impl Outcome {
-    fn value(&self) -> Option<i64> {
-        if let Self::Valid(outcome) = self {
-            Some(*outcome)
-        } else {
-            None
-        }
-    }
-
-    fn unwrap(&self) -> i64 {
-        self.value().unwrap()
-    }
-
     fn unwrap_or(&self, value: i64) -> i64 {
-        self.value().unwrap_or(value)
+        if let Self::Valid(outcome) = self {
+            *outcome
+        } else {
+            value
+        }
     }
 }
 
 fn arrangements_memoized((springs, lens): (Vec<Spring>, Vec<usize>)) -> i64 {
     let mut m = Matrix::of(Vec::of(Outcome::None));
-    arrangements(&springs[..], &lens[..], &mut m).unwrap()
+    arrangements(&springs[..], &lens[..], &mut m).unwrap_or(0)
 }
 
 fn place(len: usize, springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
@@ -74,6 +66,8 @@ fn arrangements(springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> 
         return memo;
     }
     let outcome = match (springs.iter().next(), lens.iter().next()) {
+        (None, None) => Outcome::Valid(1),
+        (None, Some(_)) => Outcome::Invalid,
         (Some(Spring::Ok), _) => arrangements(&springs[1..], lens, m),
         (Some(Spring::Broken), None) => Outcome::Invalid,
         (Some(Spring::Broken), Some(len)) => place(*len, springs, &lens[1..], m),
@@ -83,8 +77,6 @@ fn arrangements(springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> 
             let there = arrangements(&springs[1..], lens, m).unwrap_or(0);
             Outcome::Valid(here + there)
         }
-        (None, Some(_)) => Outcome::Invalid,
-        (None, None) => Outcome::Valid(1),
     };
     m[springs.len()][lens.len()] = outcome;
     outcome
