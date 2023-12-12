@@ -19,7 +19,7 @@ impl From<u8> for Row {
     }
 }
 
-type Vec<T> = StaticVec<T, 128>;
+type Vec<T> = StaticVec<T, 1024>;
 
 fn arrangements((rows, lens): (Vec<Row>, Vec<usize>)) -> i64 {
     arrangements_at(&rows[..], &lens[..]).unwrap()
@@ -72,8 +72,16 @@ pub fn part1(input: &str) -> i64 {
     input.lines().map(parse).map(arrangements).sum()
 }
 
+fn expand((mut rows, lens): (Vec<Row>, Vec<usize>)) -> (Vec<Row>, Vec<usize>) {
+    rows.push(Row::Unknown);
+    (
+        rows.into_iter().cycle().take(rows.len() * 5 - 1).collect(),
+        lens.into_iter().cycle().take(lens.len() * 5).collect(),
+    )
+}
+
 pub fn part2(input: &str) -> i64 {
-    0
+    input.lines().map(parse).map(expand).map(arrangements).sum()
 }
 
 #[cfg(test)]
@@ -94,13 +102,13 @@ mod test {
             assert_eq!(arrangements(parse(line)), expected[i]);
         }
         assert_eq!(part1(input), 21);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 525152);
     }
 
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day12.txt");
-        assert_eq!(part1(input), 0);
+        assert_eq!(part1(input), 8419);
         assert_eq!(part2(input), 0);
     }
 }
