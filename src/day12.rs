@@ -36,10 +36,8 @@ fn place(
     if len > rows.len() {
         return None;
     }
-    for i in 0..len {
-        if rows[i] == Row::Ok {
-            return None;
-        }
+    if rows[..len].iter().any(|row| *row == Row::Ok) {
+        return None;
     }
     // ok, make sure we can now skip a working row
     if len >= rows.len() {
