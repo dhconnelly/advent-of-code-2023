@@ -21,8 +21,34 @@ impl From<u8> for Row {
 
 type Vec<T> = StaticVec<T, 128>;
 
+#[derive(Clone, Copy, PartialEq, Default)]
+enum Outcome {
+    #[default]
+    None,
+    Invalid,
+    Valid(i64),
+}
+
+impl Outcome {
+    fn unwrap(&self) -> i64 {
+        if let Self::Valid(outcome) = self {
+            *outcome
+        } else {
+            panic!("invalid outcome");
+        }
+    }
+
+    fn unwrap_or(&self, value: i64) -> i64 {
+        if let Self::Valid(outcome) = self {
+            *outcome
+        } else {
+            value
+        }
+    }
+}
+
 fn arrangements((rows, lens): (Vec<Row>, Vec<usize>)) -> i64 {
-    let mut mat = Vec::of(Vec::of(Some(-1)));
+    let mut mat = Vec::of(Vec::of(Outcome::None));
     arrangements_at(&rows[..], &lens[..], &mut mat).unwrap()
 }
 
@@ -30,46 +56,42 @@ fn place(
     len: usize,
     rows: &[Row],
     lens: &[usize],
-    mat: &mut Vec<Vec<Option<i64>>>,
-) -> Option<i64> {
+    mat: &mut Vec<Vec<Outcome>>,
+) -> Outcome {
     // try to place |len| broken rows
     if len > rows.len() {
-        return None;
+        return Outcome::Invalid;
     }
     if rows[..len].iter().any(|row| *row == Row::Ok) {
-        return None;
+        return Outcome::Invalid;
     }
     // ok, make sure we can now skip a working row
     if len >= rows.len() {
         arrangements_at(&rows[len..], lens, mat)
     } else if rows[len] == Row::Broken {
-        None
+        Outcome::Invalid
     } else {
         arrangements_at(&rows[len + 1..], lens, mat)
     }
 }
 
-fn arrangements_at(
-    rows: &[Row],
-    lens: &[usize],
-    mat: &mut Vec<Vec<Option<i64>>>,
-) -> Option<i64> {
+fn arrangements_at(rows: &[Row], lens: &[usize], mat: &mut Vec<Vec<Outcome>>) -> Outcome {
     let memo = mat[rows.len()][lens.len()];
-    if memo != Some(-1) {
+    if memo != Outcome::None {
         return memo;
     }
     let result = match (rows.iter().next(), lens.iter().next()) {
         (Some(Row::Ok), _) => arrangements_at(&rows[1..], lens, mat),
-        (Some(Row::Broken), None) => None,
+        (Some(Row::Broken), None) => Outcome::Invalid,
         (Some(Row::Broken), Some(len)) => place(*len, rows, &lens[1..], mat),
         (Some(Row::Unknown), None) => arrangements_at(&rows[1..], lens, mat),
         (Some(Row::Unknown), Some(len)) => {
             let here = place(*len, rows, &lens[1..], mat).unwrap_or(0);
             let there = arrangements_at(&rows[1..], lens, mat).unwrap_or(0);
-            Some(here + there)
+            Outcome::Valid(here + there)
         }
-        (None, Some(_)) => None,
-        (None, None) => Some(1),
+        (None, Some(_)) => Outcome::Invalid,
+        (None, None) => Outcome::Valid(1),
     };
     mat[rows.len()][lens.len()] = result;
     result
