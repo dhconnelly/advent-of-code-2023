@@ -41,11 +41,14 @@ impl Outcome {
 }
 
 fn arrangements_memoized(springs: &[Spring], lens: &[usize]) -> i64 {
-    let mut m = Matrix::of(Vec::of(Outcome::None));
-    arrangements(springs, lens, &mut m).unwrap_or(0)
+    let mut m = Matrix::of(Vec::from([Outcome::None; 128]));
+    place(springs, lens, &mut m).unwrap_or(0)
 }
 
-fn place(len: usize, springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
+// count how many ways we can place |len| broken springs at the *beginning* of
+// the array |springs| and the remaining |lens| of broken spring lengths anywhere
+// in the remaining array
+fn place_here(len: usize, springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
     // try to place |len| broken springs
     // then, make sure we can now skip a working spring
     if len > springs.len() {
@@ -53,28 +56,30 @@ fn place(len: usize, springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>
     } else if springs[..len].iter().any(|spring| *spring == Spring::Ok) {
         Outcome::Invalid
     } else if len >= springs.len() {
-        arrangements(&springs[len..], lens, m)
+        place(&springs[len..], lens, m)
     } else if springs[len] == Spring::Broken {
         Outcome::Invalid
     } else {
-        arrangements(&springs[len + 1..], lens, m)
+        place(&springs[len + 1..], lens, m)
     }
 }
 
-fn arrangements(springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
+// count how many ways we can place strings of broken strings of lengths |lens| into
+// the array |springs|
+fn place(springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
     if let memo @ (Outcome::Valid(_) | Outcome::Invalid) = m[springs.len()][lens.len()] {
         return memo;
     }
     let outcome = match (springs.iter().next(), lens.iter().next()) {
         (None, None) => Outcome::Valid(1),
         (None, Some(_)) => Outcome::Invalid,
-        (Some(Spring::Ok), _) => arrangements(&springs[1..], lens, m),
+        (Some(Spring::Ok), _) => place(&springs[1..], lens, m),
         (Some(Spring::Broken), None) => Outcome::Invalid,
-        (Some(Spring::Broken), Some(len)) => place(*len, springs, &lens[1..], m),
-        (Some(Spring::Unknown), None) => arrangements(&springs[1..], lens, m),
+        (Some(Spring::Broken), Some(len)) => place_here(*len, springs, &lens[1..], m),
+        (Some(Spring::Unknown), None) => place(&springs[1..], lens, m),
         (Some(Spring::Unknown), Some(len)) => {
-            let here = place(*len, springs, &lens[1..], m).unwrap_or(0);
-            let there = arrangements(&springs[1..], lens, m).unwrap_or(0);
+            let here = place_here(*len, springs, &lens[1..], m).unwrap_or(0);
+            let there = place(&springs[1..], lens, m).unwrap_or(0);
             Outcome::Valid(here + there)
         }
     };
