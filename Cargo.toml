@@ -11,6 +11,7 @@ heapless = "0.8.0"
 lazy_static = "1.4.0"
 libc-print = "0.1.22"
 regex = "1.10.2"
+tetra = "0.8.0"
 thiserror = "1.0.50"
 
 [dev-dependencies]

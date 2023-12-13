@@ -1,33 +1,61 @@
 use advent_of_code_2023::static_queue::StaticQueue;
 use advent_of_code_2023::static_vec::StaticVec;
 use heapless::FnvIndexSet;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use tetra::graphics::{self, Color};
+use tetra::{Context, ContextBuilder, State};
+
+type Buffer = Vec<Vec<char>>;
 
 struct Visualizer {
     rows: usize,
     cols: usize,
+    data: Arc<Mutex<Buffer>>,
+    transient: Vec<(Pt2, char)>,
 }
 
 impl Visualizer {
     fn new(rows: i32, cols: i32) -> Self {
-        let viz = Self { rows: rows as usize, cols: cols as usize };
-        // TODO: draw empty grid
+        let transient = Vec::new();
+        let data = Arc::new(Mutex::new(vec![vec!['.'; cols as usize]; rows as usize]));
+        let viz = Self { rows: rows as usize, cols: cols as usize, data, transient };
         viz
     }
 
     fn mark_loop(&mut self, (row, col): Pt2) {
-        // TODO: mark tile
+        self.data.lock().unwrap()[row as usize][col as usize] = '@';
+        thread::sleep_ms(1000);
     }
 
     fn mark_interior(&mut self, (row, col): Pt2) {
-        // TODO: mark tile
+        self.data.lock().unwrap()[row as usize][col as usize] = '#';
+        thread::sleep_ms(1000);
     }
 
-    fn mark_transient(&mut self, (row, col): Pt2) {
-        // TODO
+    fn mark_transient(&mut self, pt @ (row, col): Pt2) {
+        let cur = &mut self.data.lock().unwrap()[row as usize][col as usize];
+        self.transient.push((pt, *cur));
+        *cur = '%';
+        thread::sleep_ms(1000);
     }
 
-    fn clear_transient(&mut self, (row, col): Pt2) {
-        // TODO
+    fn clear_transient(&mut self) {
+        for ((row, col), prev) in &self.transient {
+            self.data.lock().unwrap()[*row as usize][*col as usize] = *prev;
+        }
+        self.transient.clear();
+        thread::sleep_ms(1000);
+    }
+}
+
+struct VizState(Arc<Mutex<Buffer>>);
+
+impl State for VizState {
+    fn draw(&mut self, ctx: &mut Context) -> tetra::Result {
+        let data = self.0.lock().unwrap();
+        graphics::clear(ctx, Color::rgb(1., 0., 0.));
+        Ok(())
     }
 }
 
@@ -198,11 +226,21 @@ fn part2(grid: &Grid, viz: &mut Visualizer) -> i32 {
     interior_area(&grid, &looop, viz)
 }
 
-fn main() {
-    let path = std::env::args().skip(1).next().unwrap();
-    let text = std::fs::read_to_string(&path).unwrap();
+fn main() -> tetra::Result {
+    let path = std::env::args().skip(1).next().expect("usage: day10viz <input-path>");
+    let text = std::fs::read_to_string(&path).expect("failed to read file");
     let grid = parse(&text);
     let mut viz = Visualizer::new(grid.height, grid.width);
-    println!("{}", part1(&grid, &mut viz));
-    println!("{}", part2(&grid, &mut viz));
+    let state = viz.data.clone();
+    thread::scope(|scope| {
+        scope
+            .spawn(move || {
+                thread::sleep_ms(1000);
+                part1(&grid, &mut viz);
+                part2(&grid, &mut viz);
+            })
+            .join()
+            .unwrap();
+    });
+    ContextBuilder::new("day10viz", 640, 480).build()?.run(|_| Ok(VizState(state)))
 }
