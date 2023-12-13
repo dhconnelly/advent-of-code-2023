@@ -27,6 +27,10 @@ you have installed `flamegraph`):
 
 (the `--root` is required on macOS)
 
+to run the visualization for day 10:
+
+    cargo run --release --bin day10viz
+
 ## benchmarks
 
 according to `cargo bench` on my 2022 m2 macbook air, charging:
