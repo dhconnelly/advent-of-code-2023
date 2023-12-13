@@ -15,6 +15,7 @@ const INPUTS: &[&str] = &[
     include_str!("../inputs/day11.txt"),
     include_str!("../inputs/day12.txt"),
     include_str!("../inputs/day13.txt"),
+    include_str!("../inputs/day14.txt"),
 ];
 
 fn benchmark(c: &mut Criterion) {
@@ -44,6 +45,8 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("day12part2", |b| b.iter(|| day12::part2(black_box(INPUTS[11]))));
     c.bench_function("day13part1", |b| b.iter(|| day13::part1(black_box(INPUTS[12]))));
     c.bench_function("day13part2", |b| b.iter(|| day13::part2(black_box(INPUTS[12]))));
+    c.bench_function("day14part1", |b| b.iter(|| day14::part1(black_box(INPUTS[13]))));
+    c.bench_function("day14part2", |b| b.iter(|| day14::part2(black_box(INPUTS[13]))));
 }
 
 criterion_group!(benches, benchmark);
