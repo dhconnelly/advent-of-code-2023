@@ -2,6 +2,35 @@ use advent_of_code_2023::static_queue::StaticQueue;
 use advent_of_code_2023::static_vec::StaticVec;
 use heapless::FnvIndexSet;
 
+struct Visualizer {
+    rows: usize,
+    cols: usize,
+}
+
+impl Visualizer {
+    fn new(rows: i32, cols: i32) -> Self {
+        let viz = Self { rows: rows as usize, cols: cols as usize };
+        // TODO: draw empty grid
+        viz
+    }
+
+    fn mark_loop(&mut self, (row, col): Pt2) {
+        // TODO: mark tile
+    }
+
+    fn mark_interior(&mut self, (row, col): Pt2) {
+        // TODO: mark tile
+    }
+
+    fn mark_transient(&mut self, (row, col): Pt2) {
+        // TODO
+    }
+
+    fn clear_transient(&mut self, (row, col): Pt2) {
+        // TODO
+    }
+}
+
 type Tile = u8;
 type Pt2 = (i32, i32);
 type Set<T> = FnvIndexSet<T, 16384>;
@@ -67,7 +96,7 @@ fn tube_neighbors(grid: &Grid, from: Pt2) -> StaticVec<Pt2, 4> {
         .collect()
 }
 
-fn tube_connections(grid: &Grid, from: Pt2) -> StaticVec<Pt2, 4> {
+fn tube_connections(grid: &Grid, from: Pt2, viz: &mut Visualizer) -> StaticVec<Pt2, 4> {
     tube_neighbors(grid, from)
         .into_iter()
         .filter(|nbr| tube_neighbors(grid, *nbr).contains(&from))
@@ -85,12 +114,12 @@ fn find(grid: &Grid, tile: Tile) -> Option<Pt2> {
     None
 }
 
-fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>) {
+fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>, viz: &mut Visualizer) {
     let mut q = Queue::new();
     q.push_back((start, 0));
     v.insert(start).unwrap();
     while let Some(front @ (cur, dist)) = q.pop_front() {
-        let nbrs = tube_connections(&grid, cur);
+        let nbrs = tube_connections(&grid, cur, viz);
         for nbr in nbrs {
             if q.front() == Some(&front) {
                 v.insert(nbr).unwrap();
@@ -120,18 +149,18 @@ fn interior_neighbors(grid: &Grid, prev: Pt2, cur: Pt2) -> StaticVec<Pt2, 4> {
     }
 }
 
-fn explore(grid: &Grid, looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>) {
+fn explore(grid: &Grid, looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>, viz: &mut Visualizer) {
     for dir in [Dir::Left, Dir::Right, Dir::Above, Dir::Below] {
         let nbr = go(from, dir);
         if v.contains(&nbr) || looop.contains(&nbr) {
             continue;
         }
         v.insert(nbr).unwrap();
-        explore(grid, looop, nbr, v);
+        explore(grid, looop, nbr, v, viz);
     }
 }
 
-fn interior_area(grid: &Grid, looop: &Set<Pt2>) -> i32 {
+fn interior_area(grid: &Grid, looop: &Set<Pt2>, viz: &mut Visualizer) -> i32 {
     let start = *looop.iter().min_by(|(r1, c1), (r2, c2)| r1.cmp(r2).then(c1.cmp(c2))).unwrap();
     let mut v = Set::new();
     let (mut prev, mut cur) = (start, start);
@@ -139,10 +168,10 @@ fn interior_area(grid: &Grid, looop: &Set<Pt2>) -> i32 {
         for pt in interior_neighbors(grid, prev, cur) {
             if !v.contains(&pt) && !looop.contains(&pt) {
                 v.insert(pt).unwrap();
-                explore(grid, looop, pt, &mut v);
+                explore(grid, looop, pt, &mut v, viz);
             }
         }
-        let nbrs = tube_connections(grid, cur);
+        let nbrs = tube_connections(grid, cur, viz);
         let next = nbrs.into_iter().filter(|nbr| *nbr != prev).next().unwrap();
         (prev, cur) = (cur, next);
     }
@@ -155,25 +184,25 @@ fn parse(input: &str) -> Grid {
     Grid { data: input.as_bytes(), width, height }
 }
 
-pub fn part1(input: &str) -> i32 {
-    let grid = parse(input);
+fn part1(grid: &Grid, viz: &mut Visualizer) -> i32 {
     let start = find(&grid, b'S').unwrap();
     let mut looop = Set::new();
-    find_loop(&grid, start, &mut looop);
+    find_loop(&grid, start, &mut looop, viz);
     looop.len() as i32 / 2
 }
 
-pub fn part2(input: &str) -> i32 {
-    let grid = parse(input);
+fn part2(grid: &Grid, viz: &mut Visualizer) -> i32 {
     let start = find(&grid, b'S').unwrap();
     let mut looop = Set::new();
-    find_loop(&grid, start, &mut looop);
-    interior_area(&grid, &looop)
+    find_loop(&grid, start, &mut looop, viz);
+    interior_area(&grid, &looop, viz)
 }
 
 fn main() {
     let path = std::env::args().skip(1).next().unwrap();
     let text = std::fs::read_to_string(&path).unwrap();
-    println!("{}", part1(&text));
-    println!("{}", part2(&text));
+    let grid = parse(&text);
+    let mut viz = Visualizer::new(grid.height, grid.width);
+    println!("{}", part1(&grid, &mut viz));
+    println!("{}", part2(&grid, &mut viz));
 }
