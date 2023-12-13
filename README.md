@@ -6,6 +6,10 @@ the binary crate (`src/main.rs`) uses std to get command-line flags and read
 the input. the library crate sets `#![no_std]` in `src/lib.rs` (and pulls in
 the rest of the code as modules).
 
+## prerequisites
+
+sdl2 (for the visualization). for mac installation instructions see: https://github.com/PistonDevelopers/rust-empty/issues/175
+
 ## usage
 
 to run the solution for day N on the input `inputs/dayN.txt`:
