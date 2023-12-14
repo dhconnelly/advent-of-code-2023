@@ -30,6 +30,10 @@ where
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn clear(&mut self) {
         for bucket in self.buckets.iter_mut() {
             bucket.clear();
@@ -38,7 +42,7 @@ where
     }
 
     pub fn get(&self, key: &K) -> Option<&V> {
-        let bucket = &self.buckets[Self::bucket_id(&key)];
+        let bucket = &self.buckets[Self::bucket_id(key)];
         let bucket_idx = bucket.iter().position(|(k, _)| k == key);
         if let Some(i) = bucket_idx {
             Some(&bucket[i].1)
@@ -65,7 +69,18 @@ where
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &(K, V)> {
-        self.buckets.iter().map(|bucket| bucket.iter()).flatten()
+        self.buckets.iter().flat_map(|bucket| bucket.iter())
+    }
+}
+
+impl<K, V, const NUM_BUCKETS: usize, const BUCKET_SIZE: usize> Default
+    for StaticMap<K, V, NUM_BUCKETS, BUCKET_SIZE>
+where
+    K: Clone + Copy + Default + Ord + PartialEq + Hash,
+    V: Clone + Copy + Default,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -96,7 +111,21 @@ where
         self.data.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &K> {
         self.data.iter().filter(|(_, v)| *v).map(|(k, _)| k)
+    }
+}
+
+impl<K, const NUM_BUCKETS: usize, const BUCKET_SIZE: usize> Default
+    for StaticSet<K, NUM_BUCKETS, BUCKET_SIZE>
+where
+    K: Clone + Copy + Default + Ord + PartialEq + Hash,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
