@@ -1,7 +1,7 @@
 use crate::static_vec::StaticVec;
 use libc_print::std_name::*;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 enum Tile {
     #[default]
     Empty,
@@ -63,6 +63,64 @@ fn roll_north(grid: &mut Grid) {
     }
 }
 
+fn roll_west(grid: &mut Grid) {
+    for col in 0..grid[0].len() {
+        let mut avail = 0;
+        for row in 0..grid.len() {
+            match grid[row][col] {
+                Tile::Round if avail == row => avail = row + 1,
+                Tile::Cube => avail = row + 1,
+                Tile::Round => {
+                    (grid[avail][col], grid[row][col]) = (Tile::Round, Tile::Empty);
+                    avail += 1;
+                }
+                Tile::Empty => {}
+            }
+        }
+    }
+}
+
+fn roll_south(grid: &mut Grid) {
+    for col in 0..grid[0].len() {
+        let mut avail = 0;
+        for row in 0..grid.len() {
+            match grid[row][col] {
+                Tile::Round if avail == row => avail = row + 1,
+                Tile::Cube => avail = row + 1,
+                Tile::Round => {
+                    (grid[avail][col], grid[row][col]) = (Tile::Round, Tile::Empty);
+                    avail += 1;
+                }
+                Tile::Empty => {}
+            }
+        }
+    }
+}
+
+fn roll_east(grid: &mut Grid) {
+    for col in 0..grid[0].len() {
+        let mut avail = 0;
+        for row in 0..grid.len() {
+            match grid[row][col] {
+                Tile::Round if avail == row => avail = row + 1,
+                Tile::Cube => avail = row + 1,
+                Tile::Round => {
+                    (grid[avail][col], grid[row][col]) = (Tile::Round, Tile::Empty);
+                    avail += 1;
+                }
+                Tile::Empty => {}
+            }
+        }
+    }
+}
+
+fn cycle(grid: &mut Grid) {
+    roll_north(grid);
+    roll_west(grid);
+    roll_south(grid);
+    roll_east(grid);
+}
+
 fn print_grid(grid: &Grid) {
     for row in grid.iter() {
         println!("{:?}", row);
@@ -80,7 +138,6 @@ fn total_load(grid: &Grid) -> usize {
 
 pub fn part1(input: &str) -> usize {
     let mut grid = parse(input);
-    print_grid(&grid);
     roll_north(&mut grid);
     total_load(&grid)
 }
@@ -108,6 +165,73 @@ O.#..O.#.#
 ";
         assert_eq!(part1(input), 136);
         assert_eq!(part2(input), 0);
+    }
+
+    #[test]
+    fn test_cycle() {
+        let input = "O....#....
+O.OO#....#
+.....##...
+OO.#O....O
+.O.....O#.
+O.#..O.#.#
+..O..#O..O
+.......O..
+#....###..
+#OO..#....
+";
+        let mut grid = parse(input);
+        cycle(&mut grid);
+        assert_eq!(
+            parse(
+                ".....#....
+....#...O#
+...OO##...
+.OO#......
+.....OOO#.
+.O#...O#.#
+....O#....
+......OOOO
+#...O###..
+#..OO#....
+"
+            ),
+            grid
+        );
+        cycle(&mut grid);
+        assert_eq!(
+            parse(
+                ".....#....
+....#...O#
+.....##...
+..O#......
+.....OOO#.
+.O#...O#.#
+....O#...O
+.......OOO
+#..OO###..
+#.OOO#...O
+"
+            ),
+            grid
+        );
+        cycle(&mut grid);
+        assert_eq!(
+            parse(
+                ".....#....
+....#...O#
+.....##...
+..O#......
+.....OOO#.
+.O#...O#.#
+....O#...O
+.......OOO
+#...O###.O
+#.OOO#...O
+"
+            ),
+            grid
+        );
     }
 
     #[test]
