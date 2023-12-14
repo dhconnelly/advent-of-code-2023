@@ -97,14 +97,10 @@ fn cycle(grid: &mut Grid) {
 }
 
 fn total_load(grid: &Grid) -> usize {
-    let load = |tile| match tile {
-        Tile::Round => 1,
-        _ => 0,
-    };
     grid.iter()
+        .map(|row| row.iter().filter(|t| **t == Tile::Round).count())
         .enumerate()
-        .map(|(i, row)| row.iter().map(move |tile| (grid.len() - i) * load(*tile)))
-        .flatten()
+        .map(|(i, n)| n * (grid.len() - i))
         .sum()
 }
 
@@ -126,15 +122,14 @@ fn cache_set(grid: &Grid, i: usize) {
 }
 
 pub fn part2(input: &str) -> usize {
-    let original = parse(input);
+    let mut grid = parse(input);
     let iterations = 1000000000;
 
     // find the cycle length
-    let mut grid = original.clone();
-    let (mut first, mut second) = (None, None);
+    let (mut first, mut second) = (0, 0);
     for i in 0..iterations {
         if let Some(j) = cache_get(&grid) {
-            (first, second) = (Some(j), Some(i));
+            (first, second) = (j, i);
             break;
         } else {
             cache_set(&grid, i);
@@ -143,11 +138,6 @@ pub fn part2(input: &str) -> usize {
     }
 
     // apply the cycles and then iterate until done
-    let (first, second) = (first.unwrap(), second.unwrap());
-    let mut grid = original;
-    for _ in 0..first {
-        cycle(&mut grid);
-    }
     let repeats = (iterations - first) / (second - first);
     let remaining = iterations % repeats - first;
     for _ in 0..remaining {
