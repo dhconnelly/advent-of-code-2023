@@ -1,8 +1,9 @@
 use crate::static_vec::StaticVec;
 use core::cmp::Ordering;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum Card {
+    #[default]
     Two,
     Three,
     Four,
@@ -28,12 +29,6 @@ impl Card {
             Card::J => -1,
             _ => self.score(),
         }
-    }
-}
-
-impl Default for Card {
-    fn default() -> Self {
-        Card::Two
     }
 }
 

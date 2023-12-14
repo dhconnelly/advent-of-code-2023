@@ -1,7 +1,6 @@
 use advent_of_code_2023::static_queue::StaticQueue;
 use advent_of_code_2023::static_vec::StaticVec;
 use heapless::FnvIndexSet;
-use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tetra::graphics::{self, Color};
@@ -20,23 +19,19 @@ const TILE_HEIGHT: f32 = 3.;
 
 #[derive(Clone, Copy)]
 enum Sprite {
-    Blank,
     Empty,
     Loop(u8),
     Walk(u8),
     Interior,
-    Transient,
 }
 
 impl Sprite {
     fn color(self) -> Color {
         match self {
-            Sprite::Blank => Color::WHITE,
             Sprite::Empty => Color::BLACK,
             Sprite::Loop(_) => Color::GREEN,
             Sprite::Walk(_) => Color::BLUE,
             Sprite::Interior => Color::RED,
-            Sprite::Transient => Color::rgb(1., 0., 1.),
         }
     }
 
@@ -44,17 +39,15 @@ impl Sprite {
         match self {
             Sprite::Walk(b'-') | Sprite::Loop(b'-') => {
                 for i in 0..3 {
-                    let pos = pos
-                        .with_x(pos.x + i as f32 * rect.width)
-                        .with_y(pos.y + 1 as f32 * rect.height);
+                    let pos =
+                        pos.with_x(pos.x + i as f32 * rect.width).with_y(pos.y + 1. * rect.height);
                     tile.draw(ctx, DrawParams::new().position(pos).color(self.color()));
                 }
             }
             Sprite::Walk(b'|') | Sprite::Loop(b'|') => {
                 for j in 0..3 {
-                    let pos = pos
-                        .with_x(pos.x + 1 as f32 * rect.width)
-                        .with_y(pos.y + j as f32 * rect.height);
+                    let pos =
+                        pos.with_x(pos.x + 1. * rect.width).with_y(pos.y + j as f32 * rect.height);
                     tile.draw(ctx, DrawParams::new().position(pos).color(self.color()));
                 }
             }
@@ -90,11 +83,7 @@ impl Sprite {
                     tile.draw(ctx, DrawParams::new().position(pos).color(self.color()));
                 }
             }
-            Sprite::Walk(b'S')
-            | Sprite::Loop(b'S')
-            | Sprite::Empty
-            | Sprite::Interior
-            | Sprite::Transient => {
+            Sprite::Walk(b'S') | Sprite::Loop(b'S') | Sprite::Empty | Sprite::Interior => {
                 for i in 0..3 {
                     for j in 0..3 {
                         let pos = pos
@@ -113,17 +102,12 @@ type Buffer = Vec<Vec<Sprite>>;
 
 struct Visualizer {
     data: Arc<Mutex<Buffer>>,
-    transient: Vec<(Pt2, Sprite)>,
-    in_transient: HashSet<Pt2>,
 }
 
 impl Visualizer {
     fn new(rows: i32, cols: i32) -> Self {
-        let transient = Vec::new();
-        let in_transient = HashSet::new();
         let data = Arc::new(Mutex::new(vec![vec![Sprite::Empty; cols as usize]; rows as usize]));
-        let viz = Self { data, transient, in_transient };
-        viz
+        Self { data }
     }
 
     fn mark_loop(&mut self, (row, col): Pt2, c: u8) {
@@ -141,28 +125,6 @@ impl Visualizer {
     fn mark_interior(&mut self, (row, col): Pt2) {
         {
             self.data.lock().unwrap()[row as usize][col as usize] = Sprite::Interior;
-        }
-    }
-
-    fn mark_transient(&mut self, pt @ (row, col): Pt2) {
-        if self.in_transient.contains(&pt) {
-            return;
-        }
-        {
-            let cur = &mut self.data.lock().unwrap()[row as usize][col as usize];
-            self.transient.push((pt, *cur));
-            self.in_transient.insert(pt);
-            *cur = Sprite::Transient;
-        }
-    }
-
-    fn clear_transient(&mut self) {
-        {
-            for ((row, col), prev) in &self.transient {
-                self.data.lock().unwrap()[*row as usize][*col as usize] = *prev;
-            }
-            self.transient.clear();
-            self.in_transient.clear();
         }
     }
 }
@@ -237,9 +199,7 @@ struct Grid<'a> {
 
 impl Grid<'_> {
     fn at(&self, (row, col): Pt2) -> Option<Tile> {
-        if row < 0 || row >= self.height {
-            None
-        } else if col < 0 || col >= self.width {
+        if row < 0 || row >= self.height || col < 0 || col >= self.width {
             None
         } else {
             Some(self.data[(row * (self.width + 1) + col) as usize])
@@ -260,7 +220,7 @@ fn tube_directions(from: Tile) -> StaticVec<Dir, 4> {
     }
 }
 
-fn tube_neighbors(grid: &Grid, from: Pt2, viz: &mut Visualizer) -> StaticVec<Pt2, 4> {
+fn tube_neighbors(grid: &Grid, from: Pt2, _: &mut Visualizer) -> StaticVec<Pt2, 4> {
     grid.at(from)
         .map(tube_directions)
         .into_iter()
@@ -294,7 +254,7 @@ fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>, viz: &mut Visualizer) {
     v.insert(start).unwrap();
     viz.mark_loop(start, grid.at(start).unwrap());
     while let Some(front @ (cur, dist)) = q.pop_front() {
-        let nbrs = tube_connections(&grid, cur, viz);
+        let nbrs = tube_connections(grid, cur, viz);
         for nbr in nbrs {
             if q.front() == Some(&front) {
                 v.insert(nbr).unwrap();
@@ -326,7 +286,7 @@ fn interior_neighbors(grid: &Grid, prev: Pt2, cur: Pt2) -> StaticVec<Pt2, 4> {
     }
 }
 
-fn explore(grid: &Grid, looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>, viz: &mut Visualizer) {
+fn explore(looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>, viz: &mut Visualizer) {
     for dir in [Dir::Left, Dir::Right, Dir::Above, Dir::Below] {
         let nbr = go(from, dir);
         if v.contains(&nbr) || looop.contains(&nbr) {
@@ -335,7 +295,7 @@ fn explore(grid: &Grid, looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>, viz: &mut
         v.insert(nbr).unwrap();
         viz.mark_interior(nbr);
         thread::sleep(std::time::Duration::from_micros(SLEEP_MICROS));
-        explore(grid, looop, nbr, v, viz);
+        explore(looop, nbr, v, viz);
     }
 }
 
@@ -349,11 +309,11 @@ fn interior_area(grid: &Grid, looop: &Set<Pt2>, viz: &mut Visualizer) -> i32 {
         for pt in interior_neighbors(grid, prev, cur) {
             if !v.contains(&pt) && !looop.contains(&pt) {
                 v.insert(pt).unwrap();
-                explore(grid, looop, pt, &mut v, viz);
+                explore(looop, pt, &mut v, viz);
             }
         }
         let nbrs = tube_connections(grid, cur, viz);
-        let next = nbrs.into_iter().filter(|nbr| *nbr != prev).next().unwrap();
+        let next = nbrs.into_iter().find(|nbr| *nbr != prev).unwrap();
         (prev, cur) = (cur, next);
     }
     v.len() as i32
@@ -366,23 +326,23 @@ fn parse(input: &str) -> Grid {
 }
 
 fn part1(grid: &Grid, viz: &mut Visualizer) -> Set<Pt2> {
-    let start = find(&grid, b'S').unwrap();
+    let start = find(grid, b'S').unwrap();
     let mut looop = Set::new();
-    find_loop(&grid, start, &mut looop, viz);
+    find_loop(grid, start, &mut looop, viz);
     looop
 }
 
 fn part2(grid: &Grid, looop: Set<Pt2>, viz: &mut Visualizer) -> i32 {
-    interior_area(&grid, &looop, viz)
+    interior_area(grid, &looop, viz)
 }
 
 fn main() -> tetra::Result {
     let text = include_str!("../../inputs/day10.txt");
-    let grid = parse(&text);
+    let grid = parse(text);
     let mut viz = Visualizer::new(grid.height, grid.width);
     let state = viz.data.clone();
     thread::spawn(move || {
-        thread::sleep_ms(2000);
+        thread::sleep(core::time::Duration::from_secs(2));
         let looop = part1(&grid, &mut viz);
         part2(&grid, looop, &mut viz);
     });

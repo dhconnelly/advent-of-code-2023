@@ -1,8 +1,8 @@
-fn nums<'a>(line: &'a str) -> impl Iterator<Item = i64> + 'a {
+fn nums(line: &str) -> impl Iterator<Item = i64> + '_ {
     line.split_whitespace().skip(1).map(|tok| tok.trim().parse::<i64>().unwrap())
 }
 
-fn parse<'a>(input: &'a str) -> impl Iterator<Item = (i64, i64)> + 'a {
+fn parse(input: &str) -> impl Iterator<Item = (i64, i64)> + '_ {
     let mut lines = input.lines();
     let times = lines.next().unwrap();
     let dists = lines.next().unwrap();
@@ -10,9 +10,7 @@ fn parse<'a>(input: &'a str) -> impl Iterator<Item = (i64, i64)> + 'a {
 }
 
 fn concat_num<'a>(toks: impl Iterator<Item = &'a str>) -> i64 {
-    toks.fold(0i64, |acc, tok| {
-        acc * (10i64.pow(tok.len() as u32)) + tok.parse::<i64>().unwrap()
-    })
+    toks.fold(0i64, |acc, tok| acc * (10i64.pow(tok.len() as u32)) + tok.parse::<i64>().unwrap())
 }
 
 fn parse_one(input: &str) -> (i64, i64) {

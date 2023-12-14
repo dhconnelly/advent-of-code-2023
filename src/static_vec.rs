@@ -34,6 +34,10 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn empty() -> Self {
         Self { data: [T::default(); N], len: 0 }
     }
@@ -63,7 +67,7 @@ impl<T: Default + Copy + PartialEq, const N: usize> StaticVec<T, N> {
 
 impl<T: Default + Copy + PartialEq, const N: usize> PartialEq for StaticVec<T, N> {
     fn eq(&self, other: &Self) -> bool {
-        self.len == other.len && (&self[0..self.len]) == (&other[0..other.len])
+        self.len == other.len && self[0..self.len] == other[0..other.len]
     }
 }
 
@@ -112,7 +116,7 @@ impl<T: Default + Copy, const N: usize> IntoIterator for StaticVec<T, N> {
 
 impl<T: Default + Copy + Debug, const N: usize> Debug for StaticVec<T, N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        (&self.data[..self.len]).fmt(f)
+        self.data[..self.len].fmt(f)
     }
 }
 

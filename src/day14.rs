@@ -117,7 +117,7 @@ fn cache_get(grid: &Grid) -> Option<usize> {
 }
 fn cache_set(grid: &Grid, i: usize) {
     unsafe {
-        CACHE.insert(grid.clone(), i).unwrap();
+        CACHE.insert(*grid, i).unwrap();
     }
 }
 

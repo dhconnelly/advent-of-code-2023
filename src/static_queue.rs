@@ -34,3 +34,9 @@ impl<T: Default + Copy, const N: usize> StaticQueue<T, N> {
         self.tail += 1;
     }
 }
+
+impl<T: Default + Copy, const N: usize> Default for StaticQueue<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}

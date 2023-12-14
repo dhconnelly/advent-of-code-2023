@@ -5,7 +5,7 @@ type Graph<'a> = StaticVec<(&'a str, (&'a str, &'a str)), 1024>;
 type IndexedGraph = StaticVec<(usize, usize), 1024>;
 type IndexedKeys<'a> = StaticVec<&'a str, 1024>;
 
-fn parse<'a>(input: &'a str) -> (&'a [Dir], IndexedGraph, IndexedKeys<'a>) {
+fn parse(input: &str) -> (&[Dir], IndexedGraph, IndexedKeys) {
     let mut lines = input.lines();
     let dirs = lines.next().unwrap().as_bytes();
 

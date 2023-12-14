@@ -34,9 +34,7 @@ struct Grid<'a> {
 
 impl Grid<'_> {
     fn at(&self, (row, col): Pt2) -> Option<Tile> {
-        if row < 0 || row >= self.height {
-            None
-        } else if col < 0 || col >= self.width {
+        if row < 0 || row >= self.height || col < 0 || col >= self.width {
             None
         } else {
             Some(self.data[(row * (self.width + 1) + col) as usize])
@@ -90,7 +88,7 @@ fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>) {
     q.push_back((start, 0));
     v.insert(start).unwrap();
     while let Some(front @ (cur, dist)) = q.pop_front() {
-        let nbrs = tube_connections(&grid, cur);
+        let nbrs = tube_connections(grid, cur);
         for nbr in nbrs {
             if q.front() == Some(&front) {
                 v.insert(nbr).unwrap();
@@ -120,31 +118,30 @@ fn interior_neighbors(grid: &Grid, prev: Pt2, cur: Pt2) -> StaticVec<Pt2, 4> {
     }
 }
 
-fn explore(grid: &Grid, looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>) {
+fn explore(looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>) {
     for dir in [Dir::Left, Dir::Right, Dir::Above, Dir::Below] {
         let nbr = go(from, dir);
         if v.contains(&nbr) || looop.contains(&nbr) {
             continue;
         }
         v.insert(nbr).unwrap();
-        explore(grid, looop, nbr, v);
+        explore(looop, nbr, v);
     }
 }
 
 fn interior_area(grid: &Grid, looop: &Set<Pt2>) -> i32 {
-    let start =
-        *looop.iter().min_by(|(r1, c1), (r2, c2)| r1.cmp(r2).then(c1.cmp(c2))).unwrap();
+    let start = *looop.iter().min_by(|(r1, c1), (r2, c2)| r1.cmp(r2).then(c1.cmp(c2))).unwrap();
     let mut v = Set::new();
     let (mut prev, mut cur) = (start, start);
     while cur != start || prev == start {
         for pt in interior_neighbors(grid, prev, cur) {
             if !v.contains(&pt) && !looop.contains(&pt) {
                 v.insert(pt).unwrap();
-                explore(grid, looop, pt, &mut v);
+                explore(looop, pt, &mut v);
             }
         }
         let nbrs = tube_connections(grid, cur);
-        let next = nbrs.into_iter().filter(|nbr| *nbr != prev).next().unwrap();
+        let next = nbrs.into_iter().find(|nbr| *nbr != prev).unwrap();
         (prev, cur) = (cur, next);
     }
     v.len() as i32

@@ -51,9 +51,7 @@ fn arrangements_memoized(springs: &[Spring], lens: &[usize]) -> i64 {
 fn place_here(len: usize, springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome {
     // try to place |len| broken springs
     // then, make sure we can now skip a working spring
-    if len > springs.len() {
-        Outcome::Invalid
-    } else if springs[..len].iter().any(|spring| *spring == Spring::Ok) {
+    if len > springs.len() || springs[..len].iter().any(|spring| *spring == Spring::Ok) {
         Outcome::Invalid
     } else if len >= springs.len() {
         place(&springs[len..], lens, m)
@@ -87,7 +85,7 @@ fn place(springs: &[Spring], lens: &[usize], m: &mut Matrix<Outcome>) -> Outcome
     outcome
 }
 
-fn parse<'a>(line: &'a str, springs: &mut Vec<Spring>, lens: &mut Vec<usize>) {
+fn parse(line: &str, springs: &mut Vec<Spring>, lens: &mut Vec<usize>) {
     let (lhs, rhs) = line.split_once(' ').unwrap();
     for spring in lhs.bytes().map(Spring::from) {
         springs.push(spring);
