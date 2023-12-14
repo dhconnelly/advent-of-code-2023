@@ -20,6 +20,12 @@ where
         Self { buckets: StaticVec::of(StaticVec::empty()), len: 0 }
     }
 
+    // ugh: https://www.reddit.com/r/rust/comments/kv34ey/is_there_an_easy_way_to_provide_const_default/
+    // TODO: modify StaticVec to use MaybeUninit instead of Default
+    pub const fn empty_of(ignored: (K, V)) -> Self {
+        Self { buckets: StaticVec::of(StaticVec::empty_of(ignored)), len: 0 }
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }

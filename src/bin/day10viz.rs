@@ -1,6 +1,6 @@
+use advent_of_code_2023::static_map::StaticSet;
 use advent_of_code_2023::static_queue::StaticQueue;
 use advent_of_code_2023::static_vec::StaticVec;
-use heapless::FnvIndexSet;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tetra::graphics::{self, Color};
@@ -169,7 +169,7 @@ impl State for VizState {
 
 type Tile = u8;
 type Pt2 = (i32, i32);
-type Set<T> = FnvIndexSet<T, 16384>;
+type Set<T> = StaticSet<T, 128, 128>;
 type Queue<T> = StaticQueue<T, 16384>;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -251,19 +251,19 @@ fn find(grid: &Grid, tile: Tile) -> Option<Pt2> {
 fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>, viz: &mut Visualizer) {
     let mut q = Queue::new();
     q.push_back((start, 0));
-    v.insert(start).unwrap();
+    v.insert(start);
     viz.mark_loop(start, grid.at(start).unwrap());
     while let Some(front @ (cur, dist)) = q.pop_front() {
         let nbrs = tube_connections(grid, cur, viz);
         for nbr in nbrs {
             if q.front() == Some(&front) {
-                v.insert(nbr).unwrap();
+                v.insert(nbr);
                 return;
             }
             if v.contains(&nbr) {
                 continue;
             }
-            v.insert(nbr).unwrap();
+            v.insert(nbr);
             viz.mark_loop(nbr, grid.at(nbr).unwrap());
             q.push_back((nbr, dist + 1));
         }
@@ -292,7 +292,7 @@ fn explore(looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>, viz: &mut Visualizer) 
         if v.contains(&nbr) || looop.contains(&nbr) {
             continue;
         }
-        v.insert(nbr).unwrap();
+        v.insert(nbr);
         viz.mark_interior(nbr);
         thread::sleep(std::time::Duration::from_micros(SLEEP_MICROS));
         explore(looop, nbr, v, viz);
@@ -308,7 +308,7 @@ fn interior_area(grid: &Grid, looop: &Set<Pt2>, viz: &mut Visualizer) -> i32 {
         thread::sleep(std::time::Duration::from_micros(SLEEP_MICROS));
         for pt in interior_neighbors(grid, prev, cur) {
             if !v.contains(&pt) && !looop.contains(&pt) {
-                v.insert(pt).unwrap();
+                v.insert(pt);
                 explore(looop, pt, &mut v, viz);
             }
         }

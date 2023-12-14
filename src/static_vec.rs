@@ -42,7 +42,13 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         Self { data: [T::default(); N], len: 0 }
     }
 
-    pub fn of(t: T) -> Self {
+    // ugh: https://www.reddit.com/r/rust/comments/kv34ey/is_there_an_easy_way_to_provide_const_default/
+    // TODO: modify StaticVec to use MaybeUninit instead of Default
+    pub const fn empty_of(ignored: T) -> Self {
+        Self { data: [ignored; N], len: 0 }
+    }
+
+    pub const fn of(t: T) -> Self {
         Self { data: [t; N], len: N }
     }
 
