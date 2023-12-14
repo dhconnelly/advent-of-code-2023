@@ -14,6 +14,7 @@ pub mod day7;
 pub mod day8;
 pub mod day9;
 mod lines;
+pub mod static_map;
 pub mod static_queue;
 pub mod static_vec;
 

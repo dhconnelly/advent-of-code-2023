@@ -1,10 +1,10 @@
+use crate::static_map::StaticSet;
 use crate::static_queue::StaticQueue;
 use crate::static_vec::StaticVec;
-use heapless::FnvIndexSet;
 
 type Tile = u8;
 type Pt2 = (i32, i32);
-type Set<T> = FnvIndexSet<T, 16384>;
+type Set<T> = StaticSet<T, 128, 256>;
 type Queue<T> = StaticQueue<T, 16384>;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -86,18 +86,18 @@ fn find(grid: &Grid, tile: Tile) -> Option<Pt2> {
 fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>) {
     let mut q = Queue::new();
     q.push_back((start, 0));
-    v.insert(start).unwrap();
+    v.insert(start);
     while let Some(front @ (cur, dist)) = q.pop_front() {
         let nbrs = tube_connections(grid, cur);
         for nbr in nbrs {
             if q.front() == Some(&front) {
-                v.insert(nbr).unwrap();
+                v.insert(nbr);
                 return;
             }
             if v.contains(&nbr) {
                 continue;
             }
-            v.insert(nbr).unwrap();
+            v.insert(nbr);
             q.push_back((nbr, dist + 1));
         }
     }
@@ -124,7 +124,7 @@ fn explore(looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>) {
         if v.contains(&nbr) || looop.contains(&nbr) {
             continue;
         }
-        v.insert(nbr).unwrap();
+        v.insert(nbr);
         explore(looop, nbr, v);
     }
 }
@@ -136,7 +136,7 @@ fn interior_area(grid: &Grid, looop: &Set<Pt2>) -> i32 {
     while cur != start || prev == start {
         for pt in interior_neighbors(grid, prev, cur) {
             if !v.contains(&pt) && !looop.contains(&pt) {
-                v.insert(pt).unwrap();
+                v.insert(pt);
                 explore(looop, pt, &mut v);
             }
         }

@@ -8,7 +8,14 @@ the rest of the code as modules).
 
 ## prerequisites
 
-sdl2 (for the visualization). for mac installation instructions see: https://github.com/PistonDevelopers/rust-empty/issues/175
+sdl2 (for the visualization).
+
+for mac os on apple silicon:
+
+    brew install sdl2
+
+    # add to your bashrc or profile:
+    export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
 
 ## usage
 

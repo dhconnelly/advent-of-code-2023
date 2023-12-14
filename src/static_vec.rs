@@ -50,6 +50,10 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         self.data[..self.len].iter()
     }
 
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.data[..self.len].iter_mut()
+    }
+
     pub fn sort_by(&mut self, cmp: impl FnMut(&T, &T) -> Ordering) {
         self.data[..self.len].sort_by(cmp);
     }
@@ -133,5 +137,17 @@ impl<T: Default + Copy, const N: usize> FromIterator<T> for StaticVec<T, N> {
             vec.push(item);
         }
         vec
+    }
+}
+
+impl<T: Default + Copy + PartialOrd, const N: usize> PartialOrd for StaticVec<T, N> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.data[..self.len].partial_cmp(&other.data[..other.len])
+    }
+}
+
+impl<T: Default + Copy + Ord, const N: usize> Ord for StaticVec<T, N> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }

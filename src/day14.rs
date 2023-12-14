@@ -111,6 +111,7 @@ pub fn part1(input: &str) -> usize {
 }
 
 // the cache is too big for the stack :(
+// TODO: use static_map once i figure out how to make its constructor const
 static mut CACHE: FnvIndexMap<Grid, usize, 1024> = FnvIndexMap::new();
 fn cache_clear() {
     unsafe {
