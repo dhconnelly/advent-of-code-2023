@@ -112,6 +112,11 @@ pub fn part1(input: &str) -> usize {
 
 // the cache is too big for the stack :(
 static mut CACHE: FnvIndexMap<Grid, usize, 1024> = FnvIndexMap::new();
+fn cache_clear() {
+    unsafe {
+        CACHE.clear();
+    }
+}
 fn cache_get(grid: &Grid) -> Option<usize> {
     unsafe { CACHE.get(grid).copied() }
 }
@@ -122,6 +127,7 @@ fn cache_set(grid: &Grid, i: usize) {
 }
 
 pub fn part2(input: &str) -> usize {
+    cache_clear();
     let mut grid = parse(input);
     let iterations = 1000000000;
 
