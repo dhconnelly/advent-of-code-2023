@@ -1,6 +1,7 @@
 use core::{
     cmp::{Ord, Ordering},
     fmt::Debug,
+    hash::Hash,
     iter::Take,
     ops::{Index, IndexMut, Range, RangeFull},
 };
@@ -65,6 +66,14 @@ impl<T: Default + Copy + PartialEq, const N: usize> PartialEq for StaticVec<T, N
         self.len == other.len && (&self[0..self.len]) == (&other[0..other.len])
     }
 }
+
+impl<T: Default + Copy + Hash, const N: usize> Hash for StaticVec<T, N> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.data[..self.len].hash(state)
+    }
+}
+
+impl<T: Default + Copy + Eq, const N: usize> Eq for StaticVec<T, N> {}
 
 impl<T: Default + Copy, const N: usize> Index<usize> for StaticVec<T, N> {
     type Output = T;

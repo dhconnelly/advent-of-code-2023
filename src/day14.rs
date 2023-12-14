@@ -1,23 +1,14 @@
 use crate::static_vec::StaticVec;
-use libc_print::std_name::*;
+use heapless::FnvIndexMap;
 
-#[derive(Clone, Copy, Default, PartialEq)]
+type Grid = StaticVec<StaticVec<Tile, 128>, 128>;
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Debug)]
 enum Tile {
     #[default]
     Empty,
     Round,
     Cube,
-}
-
-impl core::fmt::Debug for Tile {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let c = match self {
-            Tile::Empty => '.',
-            Tile::Round => 'O',
-            Tile::Cube => '#',
-        };
-        write!(f, "{}", c)
-    }
 }
 
 impl Tile {
@@ -39,8 +30,6 @@ impl From<u8> for Tile {
         }
     }
 }
-
-type Grid = StaticVec<StaticVec<Tile, 128>, 128>;
 
 fn parse(input: &str) -> Grid {
     input.lines().map(|line| line.bytes().map(Tile::from).collect()).collect()
@@ -121,13 +110,6 @@ fn cycle(grid: &mut Grid) {
     roll_east(grid);
 }
 
-fn print_grid(grid: &Grid) {
-    for row in grid.iter() {
-        println!("{:?}", row);
-    }
-    println!();
-}
-
 fn total_load(grid: &Grid) -> usize {
     grid.iter()
         .enumerate()
@@ -142,9 +124,40 @@ pub fn part1(input: &str) -> usize {
     total_load(&grid)
 }
 
+static mut CACHE: FnvIndexMap<Grid, usize, 1024> = FnvIndexMap::new();
+
+fn cache_get(grid: &Grid) -> Option<usize> {
+    unsafe { CACHE.get(grid).copied() }
+}
+
+fn cache_set(grid: &Grid, i: usize) {
+    unsafe {
+        CACHE.insert(grid.clone(), i).unwrap();
+    }
+}
+
 pub fn part2(input: &str) -> usize {
-    let mut grid = parse(input);
-    for _ in 0..1000000000 {
+    let original = parse(input);
+    let mut grid = original.clone();
+    let (mut first, mut second) = (None, None);
+    for i in 0..1000000000 {
+        if let Some(j) = cache_get(&grid) {
+            (first, second) = (Some(j), Some(i));
+            break;
+        } else {
+            cache_set(&grid, i);
+        }
+        cycle(&mut grid);
+    }
+
+    let (first, second) = (first.unwrap(), second.unwrap());
+    let mut grid = original.clone();
+    for _ in 0..first {
+        cycle(&mut grid);
+    }
+    let repeats = (1000000000 - first) / (second - first);
+    let remaining = 1000000000 % repeats - first;
+    for _ in 0..remaining {
         cycle(&mut grid);
     }
     total_load(&grid)
@@ -242,6 +255,6 @@ O.#..O.#.#
     fn test_real() {
         let input = include_str!("../inputs/day14.txt");
         assert_eq!(part1(input), 109638);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 102657);
     }
 }
