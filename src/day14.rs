@@ -63,16 +63,16 @@ fn roll_north(grid: &mut Grid) {
     }
 }
 
-fn roll_west(grid: &mut Grid) {
+fn roll_south(grid: &mut Grid) {
     for col in 0..grid[0].len() {
-        let mut avail = 0;
-        for row in 0..grid.len() {
+        let mut avail = grid.len();
+        for row in (0..grid.len()).rev() {
             match grid[row][col] {
-                Tile::Round if avail == row => avail = row + 1,
-                Tile::Cube => avail = row + 1,
+                Tile::Round if avail - 1 == row => avail = row,
+                Tile::Cube => avail = row,
                 Tile::Round => {
-                    (grid[avail][col], grid[row][col]) = (Tile::Round, Tile::Empty);
-                    avail += 1;
+                    (grid[avail - 1][col], grid[row][col]) = (Tile::Round, Tile::Empty);
+                    avail -= 1;
                 }
                 Tile::Empty => {}
             }
@@ -80,15 +80,15 @@ fn roll_west(grid: &mut Grid) {
     }
 }
 
-fn roll_south(grid: &mut Grid) {
-    for col in 0..grid[0].len() {
+fn roll_west(grid: &mut Grid) {
+    for row in 0..grid.len() {
         let mut avail = 0;
-        for row in 0..grid.len() {
+        for col in 0..grid[0].len() {
             match grid[row][col] {
-                Tile::Round if avail == row => avail = row + 1,
-                Tile::Cube => avail = row + 1,
+                Tile::Round if avail == col => avail = col + 1,
+                Tile::Cube => avail = col + 1,
                 Tile::Round => {
-                    (grid[avail][col], grid[row][col]) = (Tile::Round, Tile::Empty);
+                    (grid[row][avail], grid[row][col]) = (Tile::Round, Tile::Empty);
                     avail += 1;
                 }
                 Tile::Empty => {}
@@ -98,15 +98,15 @@ fn roll_south(grid: &mut Grid) {
 }
 
 fn roll_east(grid: &mut Grid) {
-    for col in 0..grid[0].len() {
-        let mut avail = 0;
-        for row in 0..grid.len() {
+    for row in 0..grid.len() {
+        let mut avail = grid[0].len();
+        for col in (0..grid[0].len()).rev() {
             match grid[row][col] {
-                Tile::Round if avail == row => avail = row + 1,
-                Tile::Cube => avail = row + 1,
+                Tile::Round if avail - 1 == col => avail = col,
+                Tile::Cube => avail = col,
                 Tile::Round => {
-                    (grid[avail][col], grid[row][col]) = (Tile::Round, Tile::Empty);
-                    avail += 1;
+                    (grid[row][avail - 1], grid[row][col]) = (Tile::Round, Tile::Empty);
+                    avail -= 1;
                 }
                 Tile::Empty => {}
             }
@@ -142,8 +142,12 @@ pub fn part1(input: &str) -> usize {
     total_load(&grid)
 }
 
-pub fn part2(input: &str) -> i64 {
-    0
+pub fn part2(input: &str) -> usize {
+    let mut grid = parse(input);
+    for _ in 0..1000000000 {
+        cycle(&mut grid);
+    }
+    total_load(&grid)
 }
 
 #[cfg(test)]
@@ -164,7 +168,7 @@ O.#..O.#.#
 #OO..#....
 ";
         assert_eq!(part1(input), 136);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 64);
     }
 
     #[test]
@@ -237,7 +241,7 @@ O.#..O.#.#
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day14.txt");
-        assert_eq!(part1(input), 0);
+        assert_eq!(part1(input), 109638);
         assert_eq!(part2(input), 0);
     }
 }
