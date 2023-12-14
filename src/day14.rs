@@ -11,28 +11,14 @@ enum Tile {
     Cube,
 }
 
-impl Tile {
-    fn load(&self) -> usize {
-        match self {
-            Tile::Round => 1,
-            _ => 0,
-        }
-    }
-}
-
-impl From<u8> for Tile {
-    fn from(value: u8) -> Self {
-        match value {
-            b'.' => Self::Empty,
-            b'#' => Self::Cube,
-            b'O' => Self::Round,
-            _ => panic!("invalid tile"),
-        }
-    }
-}
-
 fn parse(input: &str) -> Grid {
-    input.lines().map(|line| line.bytes().map(Tile::from).collect()).collect()
+    let tile = |value| match value {
+        b'.' => Tile::Empty,
+        b'#' => Tile::Cube,
+        b'O' => Tile::Round,
+        _ => panic!("invalid tile"),
+    };
+    input.lines().map(|line| line.bytes().map(tile).collect()).collect()
 }
 
 fn roll_north(grid: &mut Grid) {
@@ -111,9 +97,13 @@ fn cycle(grid: &mut Grid) {
 }
 
 fn total_load(grid: &Grid) -> usize {
+    let load = |tile| match tile {
+        Tile::Round => 1,
+        _ => 0,
+    };
     grid.iter()
         .enumerate()
-        .map(|(i, row)| row.iter().map(move |tile| (grid.len() - i) * tile.load()))
+        .map(|(i, row)| row.iter().map(move |tile| (grid.len() - i) * load(*tile)))
         .flatten()
         .sum()
 }
@@ -124,12 +114,11 @@ pub fn part1(input: &str) -> usize {
     total_load(&grid)
 }
 
+// the cache is too big for the stack :(
 static mut CACHE: FnvIndexMap<Grid, usize, 1024> = FnvIndexMap::new();
-
 fn cache_get(grid: &Grid) -> Option<usize> {
     unsafe { CACHE.get(grid).copied() }
 }
-
 fn cache_set(grid: &Grid, i: usize) {
     unsafe {
         CACHE.insert(grid.clone(), i).unwrap();
@@ -138,9 +127,12 @@ fn cache_set(grid: &Grid, i: usize) {
 
 pub fn part2(input: &str) -> usize {
     let original = parse(input);
+    let iterations = 1000000000;
+
+    // find the cycle length
     let mut grid = original.clone();
     let (mut first, mut second) = (None, None);
-    for i in 0..1000000000 {
+    for i in 0..iterations {
         if let Some(j) = cache_get(&grid) {
             (first, second) = (Some(j), Some(i));
             break;
@@ -150,16 +142,18 @@ pub fn part2(input: &str) -> usize {
         cycle(&mut grid);
     }
 
+    // apply the cycles and then iterate until done
     let (first, second) = (first.unwrap(), second.unwrap());
-    let mut grid = original.clone();
+    let mut grid = original;
     for _ in 0..first {
         cycle(&mut grid);
     }
-    let repeats = (1000000000 - first) / (second - first);
-    let remaining = 1000000000 % repeats - first;
+    let repeats = (iterations - first) / (second - first);
+    let remaining = iterations % repeats - first;
     for _ in 0..remaining {
         cycle(&mut grid);
     }
+
     total_load(&grid)
 }
 
