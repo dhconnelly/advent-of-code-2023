@@ -31,7 +31,7 @@ struct Lens<'a> {
     next: Option<u16>,
 }
 
-type Memory<'a> = StaticVec<Lens<'a>, 32768>;
+type Memory<'a> = StaticVec<Lens<'a>, 2048>;
 type Boxes = StaticVec<Option<u16>, 256>;
 
 // returns pointers to the element *before* the element labeled |label| as well
