@@ -57,7 +57,7 @@ fn remove(mem: &mut Memory, mptr: &mut Option<u16>, label: &str) {
 }
 
 // appends a new element to memory and returns its pointer
-fn append<'a>(mem: &mut Memory<'a>, label: &'a str, value: u8) -> u16 {
+fn make<'a>(mem: &mut Memory<'a>, label: &'a str, value: u8) -> u16 {
     mem.push(Lens { label, value, next: None });
     mem.len() as u16 - 1
 }
@@ -68,8 +68,8 @@ fn append<'a>(mem: &mut Memory<'a>, label: &'a str, value: u8) -> u16 {
 fn insert<'a>(mem: &mut Memory<'a>, mptr: &mut Option<u16>, label: &'a str, value: u8) {
     match find(mem, *mptr, label) {
         (_, Some(next)) => mem[next as usize].value = value,
-        (None, None) => *mptr = Some(append(mem, label, value)),
-        (Some(prev), None) => mem[prev as usize].next = Some(append(mem, label, value)),
+        (None, None) => *mptr = Some(make(mem, label, value)),
+        (Some(prev), None) => mem[prev as usize].next = Some(make(mem, label, value)),
     }
 }
 
