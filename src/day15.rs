@@ -34,68 +34,49 @@ struct Lens<'a> {
 type Memory<'a> = StaticVec<Lens<'a>, 32768>;
 type Boxes = StaticVec<Option<u16>, 256>;
 
-// find the ptr to the element before the element labeled |label|. if not found,
-// returns the pointer to the last element in the linked list.
-fn find_pred<'a, 'b>(mem: &'a [Lens<'b>], mut ptr: u16, label: &str) -> u16 {
-    while let Some(i) = mem[ptr as usize].next {
-        let next = &mem[i as usize];
-        if next.label == label {
-            return ptr;
+// returns pointers to the element *before* the element labeled |label| as well
+// as to the element itself in the list pointed to by |ptr|.
+fn find<'a, 'b>(mem: &'a Memory, ptr: Option<u16>, label: &str) -> (Option<u16>, Option<u16>) {
+    let (mut prev, mut next) = (None, ptr);
+    while let Some(ptr) = next {
+        if mem[ptr as usize].label == label {
+            break;
         }
-        ptr = i;
+        (prev, next) = (next, mem[ptr as usize].next);
     }
-    ptr
+    (prev, next)
 }
 
 // remove the element labeled |label| from the list pointed to by |mptr|
 fn remove(mem: &mut Memory, mptr: &mut Option<u16>, label: &str) {
-    if let Some(ptr) = *mptr {
-        if mem[ptr as usize].label == label {
-            *mptr = mem[ptr as usize].next;
-        } else {
-            let pred = find_pred(&mem[..], ptr, label) as usize;
-            match mem[pred].next {
-                Some(j) => mem[pred].next = mem[j as usize].next,
-                None => {}
-            }
-        }
+    match find(mem, *mptr, label) {
+        (_, None) => {}
+        (None, Some(ptr)) => *mptr = mem[ptr as usize].next,
+        (Some(prev), Some(next)) => mem[prev as usize].next = mem[next as usize].next,
     }
+}
+
+// appends a new element to memory and returns its pointer
+fn append<'a>(mem: &mut Memory<'a>, label: &'a str, value: u8) -> u16 {
+    mem.push(Lens { label, value, next: None });
+    mem.len() as u16 - 1
 }
 
 // updates the value of the element labeled |label|, if it exists, in the
 // list pointed to by |mptr|. if no such element exists, adds a new element
 // the list.
 fn insert<'a>(mem: &mut Memory<'a>, mptr: &mut Option<u16>, label: &'a str, value: u8) {
-    match *mptr {
-        None => {
-            *mptr = Some(mem.len() as u16);
-            mem.push(Lens { label, value, next: None });
-        }
-        Some(ptr) => {
-            if mem[ptr as usize].label == label {
-                mem[ptr as usize].value = value;
-            } else {
-                let pred = find_pred(&mem[..], ptr, label) as usize;
-                match mem[pred].next {
-                    Some(j) => mem[j as usize].value = value,
-                    None => {
-                        mem[pred].next = Some(mem.len() as u16);
-                        mem.push(Lens { label, value, next: None });
-                    }
-                }
-            }
-        }
+    match find(mem, *mptr, label) {
+        (_, Some(next)) => mem[next as usize].value = value,
+        (None, None) => *mptr = Some(append(mem, label, value)),
+        (Some(prev), None) => mem[prev as usize].next = Some(append(mem, label, value)),
     }
 }
 
 fn apply<'a>(mem: &mut Memory<'a>, boxes: &mut Boxes, op: Op<'a>) {
     match op {
-        Op::Insert(label, value) => {
-            insert(mem, &mut boxes[hash(label) as usize], label, value);
-        }
-        Op::Remove(label) => {
-            remove(mem, &mut boxes[hash(label) as usize], label);
-        }
+        Op::Insert(label, value) => insert(mem, &mut boxes[hash(label) as usize], label, value),
+        Op::Remove(label) => remove(mem, &mut boxes[hash(label) as usize], label),
     }
 }
 
