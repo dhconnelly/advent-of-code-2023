@@ -32,11 +32,12 @@ struct Lens<'a> {
 }
 
 type Memory<'a> = StaticVec<Lens<'a>, 2048>;
-type Boxes = StaticVec<Option<u16>, 256>;
+type Boxes = StaticVec<Ptr, 256>;
+type Ptr = Option<u16>;
 
 // returns pointers to the element *before* the element labeled |label| as well
 // as to the element itself in the list pointed to by |ptr|.
-fn find<'a, 'b>(mem: &'a Memory, ptr: Option<u16>, label: &str) -> (Option<u16>, Option<u16>) {
+fn find<'a, 'b>(mem: &'a Memory, ptr: Ptr, label: &str) -> (Ptr, Ptr) {
     let (mut prev, mut next) = (None, ptr);
     while let Some(ptr) = next {
         if mem[ptr as usize].label == label {
@@ -47,29 +48,29 @@ fn find<'a, 'b>(mem: &'a Memory, ptr: Option<u16>, label: &str) -> (Option<u16>,
     (prev, next)
 }
 
-// remove the element labeled |label| from the list pointed to by |mptr|
-fn remove(mem: &mut Memory, mptr: &mut Option<u16>, label: &str) {
-    match find(mem, *mptr, label) {
+// remove the element labeled |label| from the list pointed to by |ptr|
+fn remove(mem: &mut Memory, ptr: &mut Ptr, label: &str) {
+    match find(mem, *ptr, label) {
         (_, None) => {}
-        (None, Some(ptr)) => *mptr = mem[ptr as usize].next,
+        (None, Some(next)) => *ptr = mem[next as usize].next,
         (Some(prev), Some(next)) => mem[prev as usize].next = mem[next as usize].next,
     }
 }
 
 // appends a new element to memory and returns its pointer
-fn make<'a>(mem: &mut Memory<'a>, label: &'a str, value: u8) -> u16 {
+fn new<'a>(mem: &mut Memory<'a>, label: &'a str, value: u8) -> Option<u16> {
     mem.push(Lens { label, value, next: None });
-    mem.len() as u16 - 1
+    Some(mem.len() as u16 - 1)
 }
 
 // updates the value of the element labeled |label|, if it exists, in the
-// list pointed to by |mptr|. if no such element exists, adds a new element
+// list pointed to by |ptr|. if no such element exists, adds a new element
 // the list.
-fn insert<'a>(mem: &mut Memory<'a>, mptr: &mut Option<u16>, label: &'a str, value: u8) {
-    match find(mem, *mptr, label) {
+fn insert<'a>(mem: &mut Memory<'a>, ptr: &mut Ptr, label: &'a str, value: u8) {
+    match find(mem, *ptr, label) {
         (_, Some(next)) => mem[next as usize].value = value,
-        (None, None) => *mptr = Some(make(mem, label, value)),
-        (Some(prev), None) => mem[prev as usize].next = Some(make(mem, label, value)),
+        (None, None) => *ptr = new(mem, label, value),
+        (Some(prev), None) => mem[prev as usize].next = new(mem, label, value),
     }
 }
 
