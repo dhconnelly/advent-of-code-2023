@@ -1,10 +1,9 @@
-use heapless::FnvIndexSet;
-
 use crate::static_queue::StaticQueue;
 use crate::static_vec::StaticVec;
+use heapless::FnvIndexSet;
 
 type Tile = u8;
-type Pt2 = (i32, i32);
+type Pt2 = (u8, u8);
 type Set<T> = FnvIndexSet<T, 16384>;
 type Queue<T> = StaticQueue<T, 16384>;
 
@@ -17,28 +16,29 @@ enum Dir {
     Right,
 }
 
-fn go((row, col): Pt2, dir: Dir) -> Pt2 {
+fn go((row, col): Pt2, dir: Dir) -> Option<Pt2> {
     match dir {
-        Dir::Left => (row, col - 1),
-        Dir::Right => (row, col + 1),
-        Dir::Above => (row - 1, col),
-        Dir::Below => (row + 1, col),
+        Dir::Left if col > 0 => Some((row, col - 1)),
+        Dir::Right => Some((row, col + 1)),
+        Dir::Above if row > 0 => Some((row - 1, col)),
+        Dir::Below => Some((row + 1, col)),
+        _ => None,
     }
 }
 
 #[derive(Debug)]
 struct Grid<'a> {
     data: &'a [u8],
-    width: i32,
-    height: i32,
+    width: u8,
+    height: u8,
 }
 
 impl Grid<'_> {
     fn at(&self, (row, col): Pt2) -> Option<Tile> {
-        if row < 0 || row >= self.height || col < 0 || col >= self.width {
+        if row >= self.height || col >= self.width {
             None
         } else {
-            Some(self.data[(row * (self.width + 1) + col) as usize])
+            Some(self.data[row as usize * (self.width as usize + 1) + col as usize])
         }
     }
 }
@@ -61,7 +61,7 @@ fn tube_neighbors(grid: &Grid, from: Pt2) -> StaticVec<Pt2, 4> {
         .map(tube_directions)
         .into_iter()
         .flatten()
-        .map(|dir| go(from, dir))
+        .flat_map(|dir| go(from, dir))
         .filter(|pt| grid.at(*pt).is_some())
         .collect()
 }
@@ -105,28 +105,32 @@ fn find_loop(grid: &Grid, start: Pt2, v: &mut Set<Pt2>) {
 }
 
 fn interior_neighbors(grid: &Grid, prev: Pt2, cur: Pt2) -> StaticVec<Pt2, 4> {
+    fn collect<const N: usize>(nbrs: [Option<Pt2>; N]) -> StaticVec<Pt2, 4> {
+        nbrs.into_iter().flatten().collect()
+    }
     use Dir::*;
     match grid.at(cur) {
-        Some(b'F') if prev.1 > cur.1 => StaticVec::from([go(cur, Above), go(cur, Left)]),
-        Some(b'J') if prev.1 < cur.1 => StaticVec::from([go(cur, Below), go(cur, Right)]),
-        Some(b'7') if prev.0 > cur.0 => StaticVec::from([go(cur, Above), go(cur, Right)]),
-        Some(b'L') if prev.0 < cur.0 => StaticVec::from([go(cur, Left), go(cur, Below)]),
-        Some(b'|') if prev.0 < cur.0 => StaticVec::from([go(cur, Left)]),
-        Some(b'|') if prev.0 > cur.0 => StaticVec::from([go(cur, Right)]),
-        Some(b'-') if prev.1 < cur.1 => StaticVec::from([go(cur, Below)]),
-        Some(b'-') if prev.1 > cur.1 => StaticVec::from([go(cur, Above)]),
+        Some(b'F') if prev.1 > cur.1 => collect([go(cur, Above), go(cur, Left)]),
+        Some(b'J') if prev.1 < cur.1 => collect([go(cur, Below), go(cur, Right)]),
+        Some(b'7') if prev.0 > cur.0 => collect([go(cur, Above), go(cur, Right)]),
+        Some(b'L') if prev.0 < cur.0 => collect([go(cur, Left), go(cur, Below)]),
+        Some(b'|') if prev.0 < cur.0 => collect([go(cur, Left)]),
+        Some(b'|') if prev.0 > cur.0 => collect([go(cur, Right)]),
+        Some(b'-') if prev.1 < cur.1 => collect([go(cur, Below)]),
+        Some(b'-') if prev.1 > cur.1 => collect([go(cur, Above)]),
         _ => StaticVec::empty(),
     }
 }
 
 fn explore(looop: &Set<Pt2>, from: Pt2, v: &mut Set<Pt2>) {
     for dir in [Dir::Left, Dir::Right, Dir::Above, Dir::Below] {
-        let nbr = go(from, dir);
-        if v.contains(&nbr) || looop.contains(&nbr) {
-            continue;
+        if let Some(nbr) = go(from, dir) {
+            if v.contains(&nbr) || looop.contains(&nbr) {
+                continue;
+            }
+            v.insert(nbr).unwrap();
+            explore(looop, nbr, v);
         }
-        v.insert(nbr).unwrap();
-        explore(looop, nbr, v);
     }
 }
 
@@ -149,8 +153,8 @@ fn interior_area(grid: &Grid, looop: &Set<Pt2>) -> i32 {
 }
 
 fn parse(input: &str) -> Grid {
-    let width = input.lines().next().unwrap().len() as i32;
-    let height = input.lines().count() as i32;
+    let width = input.lines().next().unwrap().len() as u8;
+    let height = input.lines().count() as u8;
     Grid { data: input.as_bytes(), width, height }
 }
 

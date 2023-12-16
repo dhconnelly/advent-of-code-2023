@@ -22,8 +22,9 @@ impl<T: Default + Copy, const N: usize> StaticVec<T, N> {
         self.len += 1;
     }
 
-    pub fn pop(&mut self) {
+    pub fn pop(&mut self) -> T {
         self.len -= 1;
+        self.data[self.len]
     }
 
     pub fn clear(&mut self) {
