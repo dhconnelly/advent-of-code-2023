@@ -110,7 +110,6 @@ pub fn part1(input: &str) -> usize {
 }
 
 // the cache is too big for the stack :(
-// TODO: use static_map once i figure out how to make its constructor const
 static EMPTY_GRID: Grid = Grid::of(StaticVec::of(Tile::Empty));
 static mut CACHE: StaticMap<Grid, usize, 32, 128> = StaticMap::empty_of((EMPTY_GRID, 0));
 fn cache_clear() {
