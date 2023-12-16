@@ -37,7 +37,7 @@ type Ptr = Option<u16>;
 
 // returns pointers to the element *before* the element labeled |label| as well
 // as to the element itself in the list pointed to by |ptr|.
-fn find<'a, 'b>(mem: &'a Memory, ptr: Ptr, label: &str) -> (Ptr, Ptr) {
+fn find(mem: &Memory, ptr: Ptr, label: &str) -> (Ptr, Ptr) {
     let (mut prev, mut next) = (None, ptr);
     while let Some(ptr) = next {
         if mem[ptr as usize].label == label {

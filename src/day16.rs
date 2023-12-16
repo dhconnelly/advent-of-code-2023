@@ -1,6 +1,5 @@
-use heapless::FnvIndexSet;
-
 use crate::{static_queue::StaticQueue, static_vec::StaticVec};
+use heapless::FnvIndexSet;
 
 type Grid = StaticVec<StaticVec<Tile, 128>, 128>;
 type Queue<T> = StaticQueue<T, 32768>;
