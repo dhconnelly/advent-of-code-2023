@@ -18,6 +18,7 @@ pub mod day9;
 mod lines;
 pub mod static_map;
 pub mod static_queue;
+pub mod static_treemap;
 pub mod static_vec;
 
 #[macro_use]
