@@ -1,4 +1,6 @@
-use crate::{static_map::StaticMap, static_vec::StaticVec};
+use heapless::FnvIndexMap;
+
+use crate::static_vec::StaticVec;
 
 type Grid = StaticVec<StaticVec<Tile, 128>, 128>;
 
@@ -110,8 +112,7 @@ pub fn part1(input: &str) -> usize {
 }
 
 // the cache is too big for the stack :(
-static EMPTY_GRID: Grid = Grid::of(StaticVec::of(Tile::Empty));
-static mut CACHE: StaticMap<Grid, usize, 32, 128> = StaticMap::empty_of((EMPTY_GRID, 0));
+static mut CACHE: FnvIndexMap<Grid, usize, 1024> = FnvIndexMap::new();
 fn cache_clear() {
     unsafe {
         CACHE.clear();
@@ -122,7 +123,7 @@ fn cache_get(grid: &Grid) -> Option<usize> {
 }
 fn cache_set(grid: &Grid, i: usize) {
     unsafe {
-        CACHE.insert(*grid, i);
+        CACHE.insert(*grid, i).unwrap();
     }
 }
 

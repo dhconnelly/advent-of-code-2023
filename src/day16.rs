@@ -1,11 +1,13 @@
-use crate::{static_map::StaticSet, static_queue::StaticQueue, static_vec::StaticVec};
+use heapless::FnvIndexSet;
+
+use crate::{static_queue::StaticQueue, static_vec::StaticVec};
 
 type Grid = StaticVec<StaticVec<Tile, 128>, 128>;
 type Queue<T> = StaticQueue<T, 32768>;
-type Set<T> = StaticSet<T, 128, 128>;
+type Set<T> = FnvIndexSet<T, 32768>;
 type Pt = (i8, i8);
 
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 enum Tile {
     #[default]
     Empty,
@@ -27,7 +29,7 @@ fn parse(input: &str) -> Grid {
     input.lines().map(|line| line.bytes().map(tile).collect()).collect()
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Dir {
     #[default]
     Right,
@@ -88,15 +90,15 @@ fn explore(grid: &Grid, energized: &mut Set<Pt>, start @ (pt, _dir): (Pt, Dir)) 
     let mut q = Queue::new();
     let mut v: Set<(Pt, Dir)> = Set::new();
     q.push_back(start);
-    v.insert(start);
-    energized.insert(pt);
+    v.insert(start).unwrap();
+    energized.insert(pt).unwrap();
     while let Some((pt, dir)) = q.pop_front() {
         for next @ (nbr, _) in advance(grid, pt, dir) {
             if v.contains(&next) || !in_grid(grid, nbr) {
                 continue;
             }
-            energized.insert(nbr);
-            v.insert(next);
+            energized.insert(nbr).unwrap();
+            v.insert(next).unwrap();
             q.push_back(next);
         }
     }
@@ -113,28 +115,19 @@ pub fn part2(input: &str) -> usize {
     let grid = parse(input);
     let mut max = 0;
     let mut energized = Set::new();
-    // top row
-    for i in 0..grid[0].len() {
-        energized.clear();
-        explore(&grid, &mut energized, ((0, i as i8), Dir::Down));
-        max = max.max(energized.len());
-    }
-    // bottom row
-    for i in 0..grid[0].len() {
-        energized.clear();
-        explore(&grid, &mut energized, ((grid.len() as i8 - 1, i as i8), Dir::Up));
-        max = max.max(energized.len());
-    }
-    // left column
-    for i in 0..grid.len() {
-        energized.clear();
-        explore(&grid, &mut energized, ((i as i8, 0), Dir::Right));
-        max = max.max(energized.len());
+    for (i, dir) in [(0, Dir::Down), (grid.len() as i8 - 1, Dir::Up)] {
+        for j in 0..grid[0].len() {
+            energized.clear();
+            explore(&grid, &mut energized, ((i, j as i8), dir));
+            max = max.max(energized.len());
+        }
     }
     for i in 0..grid.len() {
-        energized.clear();
-        explore(&grid, &mut energized, ((i as i8, grid[0].len() as i8 - 1), Dir::Left));
-        max = max.max(energized.len());
+        for (j, dir) in [(0, Dir::Right), (grid[0].len() as i8 - 1, Dir::Left)] {
+            energized.clear();
+            explore(&grid, &mut energized, ((i as i8, j), dir));
+            max = max.max(energized.len());
+        }
     }
     max
 }
