@@ -99,6 +99,10 @@ where
         Self { data: StaticMap::new() }
     }
 
+    pub fn clear(&mut self) {
+        self.data.clear();
+    }
+
     pub fn insert(&mut self, value: K) {
         self.data.insert(value, true);
     }

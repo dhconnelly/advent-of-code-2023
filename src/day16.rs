@@ -84,12 +84,12 @@ fn in_grid(grid: &Grid, (r, c): Pt) -> bool {
     r >= 0 && r < grid.len() as i8 && c >= 0 && c < grid[r as usize].len() as i8
 }
 
-fn explore(grid: &Grid, energized: &mut Set<Pt>) {
+fn explore(grid: &Grid, energized: &mut Set<Pt>, start @ (pt, _dir): (Pt, Dir)) {
     let mut q = Queue::new();
     let mut v: Set<(Pt, Dir)> = Set::new();
-    q.push_back(((0, 0), Dir::Right));
-    v.insert(((0, 0), Dir::Right));
-    energized.insert((0, 0));
+    q.push_back(start);
+    v.insert(start);
+    energized.insert(pt);
     while let Some((pt, dir)) = q.pop_front() {
         for next @ (nbr, _) in advance(grid, pt, dir) {
             if v.contains(&next) || !in_grid(grid, nbr) {
@@ -105,12 +105,38 @@ fn explore(grid: &Grid, energized: &mut Set<Pt>) {
 pub fn part1(input: &str) -> usize {
     let grid = parse(input);
     let mut energized = Set::new();
-    explore(&grid, &mut energized);
+    explore(&grid, &mut energized, ((0, 0), Dir::Right));
     energized.len()
 }
 
-pub fn part2(input: &str) -> i64 {
-    0
+pub fn part2(input: &str) -> usize {
+    let grid = parse(input);
+    let mut max = 0;
+    let mut energized = Set::new();
+    // top row
+    for i in 0..grid[0].len() {
+        energized.clear();
+        explore(&grid, &mut energized, ((0, i as i8), Dir::Down));
+        max = max.max(energized.len());
+    }
+    // bottom row
+    for i in 0..grid[0].len() {
+        energized.clear();
+        explore(&grid, &mut energized, ((grid.len() as i8 - 1, i as i8), Dir::Up));
+        max = max.max(energized.len());
+    }
+    // left column
+    for i in 0..grid.len() {
+        energized.clear();
+        explore(&grid, &mut energized, ((i as i8, 0), Dir::Right));
+        max = max.max(energized.len());
+    }
+    for i in 0..grid.len() {
+        energized.clear();
+        explore(&grid, &mut energized, ((i as i8, grid[0].len() as i8 - 1), Dir::Left));
+        max = max.max(energized.len());
+    }
+    max
 }
 
 #[cfg(test)]
@@ -131,13 +157,13 @@ mod test {
 ..//.|....
 ";
         assert_eq!(part1(input), 46);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 51);
     }
 
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day16.txt");
-        assert_eq!(part1(input), 0);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part1(input), 7798);
+        assert_eq!(part2(input), 8026);
     }
 }
