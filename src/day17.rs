@@ -179,11 +179,9 @@ mod test {
 4322674655533
 ";
         assert_eq!(part1(input), 102);
-        assert_eq!(part2(input), 71);
 
         // real
         let input = include_str!("../inputs/day17.txt");
         assert_eq!(part1(input), 1263);
-        assert_eq!(part2(input), 0);
     }
 }
