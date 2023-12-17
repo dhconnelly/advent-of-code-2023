@@ -157,8 +157,9 @@ pub fn part2(input: &str) -> usize {
 mod test {
     use super::*;
 
+    // the tests have to run sequentially because we're using globals
     #[test]
-    fn test_examples() {
+    fn test() {
         let input = "O....#....
 O.OO#....#
 .....##...
@@ -172,10 +173,7 @@ O.#..O.#.#
 ";
         assert_eq!(part1(input), 136);
         assert_eq!(part2(input), 64);
-    }
 
-    #[test]
-    fn test_cycle() {
         let input = "O....#....
 O.OO#....#
 .....##...
@@ -239,10 +237,7 @@ O.#..O.#.#
             ),
             grid
         );
-    }
 
-    #[test]
-    fn test_real() {
         let input = include_str!("../inputs/day14.txt");
         assert_eq!(part1(input), 109638);
         assert_eq!(part2(input), 102657);
