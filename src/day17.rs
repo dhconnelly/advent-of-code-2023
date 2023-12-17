@@ -102,7 +102,7 @@ fn init_costs() {
             COSTS.push(Vec::new()).unwrap();
             for j in 0..COSTS[i].capacity() {
                 COSTS[i].push([0; 4]).unwrap();
-                for k in 0..COSTS[i][j].len() {
+                for k in 0..4 {
                     COSTS[i][j][k] = u64::MAX;
                 }
             }
@@ -163,7 +163,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
+    fn test() {
         let input = "2413432311323
 3215453535623
 3255245654254
@@ -179,11 +179,11 @@ mod test {
 4322674655533
 ";
         assert_eq!(part1(input), 102);
-    }
+        assert_eq!(part2(input), 71);
 
-    #[test]
-    fn test_real() {
+        // real
         let input = include_str!("../inputs/day17.txt");
-        assert_eq!(part1(input), 0);
+        assert_eq!(part1(input), 1263);
+        assert_eq!(part2(input), 0);
     }
 }
