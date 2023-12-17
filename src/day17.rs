@@ -2,7 +2,6 @@ use heapless::{
     binary_heap::{BinaryHeap, Min},
     Vec,
 };
-use libc_print::std_name::*;
 
 type Pt = (u8, u8);
 type Grid = Vec<Vec<u8, 256>, 256>;
@@ -45,13 +44,10 @@ struct Step {
 }
 
 impl Step {
-    fn go(self, dir: Dir, grid: &Grid) -> Option<(u64, Step)> {
-        dir.apply(self.pt, grid)
-            .map(|pt @ (row, col)| (grid[row as usize][col as usize] as u64, Step { pt, dir }))
-    }
-
     fn advance(self, grid: &Grid) -> Option<(u64, Step)> {
-        self.go(self.dir, grid)
+        self.dir.apply(self.pt, grid).map(|pt @ (row, col)| {
+            (grid[row as usize][col as usize] as u64, Step { pt, dir: self.dir })
+        })
     }
 }
 
@@ -59,29 +55,28 @@ fn neighbors(grid: &Grid, mut cur: Step, min: u8, max: u8) -> Vec<(u64, Step), 1
     let mut nbrs = Vec::new();
     let mut cost = 0;
     for _ in 0..min {
-        let (step_cost, step) = match cur.advance(grid) {
-            Some(next) => next,
-            None => {
-                return Vec::new();
-            }
+        if let Some((step_cost, step)) = cur.advance(grid) {
+            cost += step_cost;
+            cur = step;
+        } else {
+            return Vec::new();
         };
-        cost += step_cost;
-        cur = step;
     }
     for _ in 0..max - min + 1 {
         for dir in cur.dir.turns() {
             nbrs.push((cost, Step { pt: cur.pt, dir })).unwrap();
         }
-        let (step_cost, step) = match cur.advance(grid) {
-            Some(next) => next,
-            None => break,
+        if let Some((step_cost, step)) = cur.advance(grid) {
+            cost += step_cost;
+            cur = step;
+        } else {
+            break;
         };
-        cost += step_cost;
-        cur = step;
     }
     nbrs
 }
 
+// too big for the stack :(
 static mut COSTS: Costs = Costs::new();
 fn init_costs() {
     unsafe {
@@ -107,10 +102,8 @@ fn set_cost(step: Step, cost: u64) {
 }
 
 fn min_path(grid: &Grid, start: Pt, end: Pt, min_steps: u8, max_steps: u8) -> Option<u64> {
-    let mut q = MinQueue::new();
     init_costs();
-
-    // TODO: simplify wrt all the type casts
+    let mut q = MinQueue::new();
     for dir in [Dir::Right, Dir::Down] {
         let step = Step { pt: start, dir };
         q.push((0, step)).unwrap();
@@ -175,6 +168,6 @@ mod test {
         // real
         let input = include_str!("../inputs/day17.txt");
         assert_eq!(part1(input), 1263);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 1411);
     }
 }
