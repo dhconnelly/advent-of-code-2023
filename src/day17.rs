@@ -6,7 +6,7 @@ use libc_print::std_name::*;
 
 type Pt = (u8, u8);
 type Grid = Vec<Vec<u8, 256>, 256>;
-type MinQueue<T> = BinaryHeap<T, Min, 8192>;
+type MinQueue<T> = BinaryHeap<T, Min, 16384>;
 type Costs = Vec<Vec<[u64; 4], 256>, 256>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -175,6 +175,6 @@ mod test {
         // real
         let input = include_str!("../inputs/day17.txt");
         assert_eq!(part1(input), 1263);
-        //assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 0);
     }
 }
