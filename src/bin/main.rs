@@ -47,6 +47,7 @@ fn solve(day: &str, input: &str) {
         ("day14", Box::new(day14::part1), Box::new(day14::part2)),
         ("day15", Box::new(day15::part1), Box::new(day15::part2)),
         ("day16", Box::new(day16::part1), Box::new(day16::part2)),
+        ("day17", Box::new(day17::part1), Box::new(day17::part2)),
     ];
     let soln = solns
         .iter()

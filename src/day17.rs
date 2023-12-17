@@ -6,12 +6,11 @@ use libc_print::std_name::*;
 
 type Pt = (u8, u8);
 type Grid = Vec<Vec<u8, 256>, 256>;
-type MinQueue<T> = BinaryHeap<T, Min, 32768>;
-type Map<K, V> = FnvIndexMap<K, V, 32768>;
+type MinQueue<T> = BinaryHeap<T, Min, 65536>;
+type Costs = Vec<Vec<[u64; 4], 256>, 256>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Dir {
-    None,
     Up,
     Down,
     Left,
@@ -29,13 +28,12 @@ impl Dir {
         }
     }
 
-    fn next(self) -> impl Iterator<Item = Dir> {
+    fn turns(self) -> [Dir; 2] {
         match self {
-            Dir::None => [Dir::Up, Dir::Right, Dir::Down].into_iter(),
-            Dir::Right => [Dir::Up, Dir::Right, Dir::Down].into_iter(),
-            Dir::Up => [Dir::Left, Dir::Up, Dir::Right].into_iter(),
-            Dir::Left => [Dir::Up, Dir::Left, Dir::Down].into_iter(),
-            Dir::Down => [Dir::Left, Dir::Down, Dir::Right].into_iter(),
+            Dir::Right => [Dir::Up, Dir::Down],
+            Dir::Up => [Dir::Left, Dir::Right],
+            Dir::Left => [Dir::Up, Dir::Down],
+            Dir::Down => [Dir::Left, Dir::Right],
         }
     }
 }
@@ -44,39 +42,41 @@ impl Dir {
 struct Step {
     pt: Pt,
     dir: Dir,
-    steps: u8,
 }
 
 impl Step {
-    fn go(&self, dir: Dir, grid: &Grid) -> Option<Step> {
-        let nbr = dir.apply(self.pt, grid)?;
-        if dir == self.dir && self.steps < 3 {
-            Some(Step { pt: nbr, dir, steps: self.steps + 1 })
-        } else if dir != self.dir {
-            Some(Step { pt: nbr, dir, steps: 1 })
-        } else {
-            None
+    fn go(self, dir: Dir, grid: &Grid) -> Option<(u64, Step)> {
+        dir.apply(self.pt, grid)
+            .map(|pt @ (row, col)| (grid[row as usize][col as usize] as u64, Step { pt, dir }))
+    }
+
+    fn advance(self, grid: &Grid) -> Option<(u64, Step)> {
+        self.go(self.dir, grid)
+    }
+}
+
+fn neighbors2(grid: &Grid, step: Step) -> Vec<(u64, Step), 6> {
+    let mut nbrs = Vec::new();
+    for dir in step.dir.turns() {
+        if let Some(next) = step.go(dir, grid) {
+            nbrs.push(next).unwrap();
         }
     }
-}
-
-fn neighbors(grid: &Grid, from: &Step) -> Vec<Step, 4> {
-    from.dir.next().flat_map(|dir| from.go(dir, grid)).collect()
-}
-
-static mut COSTS: Map<Step, u64> = Map::new();
-fn init_costs() {
-    unsafe {
-        COSTS.clear();
+    if let Some((one_cost, one_step)) = step.advance(grid) {
+        for turn in one_step.dir.turns() {
+            if let Some((turn_cost, turn_step)) = one_step.go(turn, grid) {
+                nbrs.push((one_cost + turn_cost, turn_step)).unwrap();
+            }
+        }
+        if let Some((two_cost, two_step)) = one_step.advance(grid) {
+            for turn in two_step.dir.turns() {
+                if let Some((turn_cost, turn_step)) = two_step.go(turn, grid) {
+                    nbrs.push((one_cost + two_cost + turn_cost, turn_step)).unwrap();
+                }
+            }
+        }
     }
-}
-fn set_cost(step: Step, cost: u64) {
-    unsafe {
-        COSTS.insert(step, cost).unwrap();
-    }
-}
-fn get_cost(step: &Step) -> u64 {
-    unsafe { *COSTS.get(step).unwrap_or(&u64::MAX) }
+    nbrs
 }
 
 static mut Q: MinQueue<(u64, Step)> = MinQueue::new();
@@ -85,26 +85,55 @@ fn init_q() {
         Q.clear();
     }
 }
+fn pop_q() -> Option<(u64, Step)> {
+    unsafe { Q.pop() }
+}
 fn push_q(step: Step, cost: u64) {
     unsafe {
         Q.push((cost, step)).unwrap();
     }
 }
-fn pop_q() -> Option<(u64, Step)> {
-    unsafe { Q.pop() }
+
+static mut COSTS: Costs = Costs::new();
+fn init_costs() {
+    unsafe {
+        COSTS.clear();
+        for i in 0..COSTS.capacity() {
+            COSTS.push(Vec::new()).unwrap();
+            for j in 0..COSTS[i].capacity() {
+                COSTS[i].push([0; 4]).unwrap();
+                for k in 0..COSTS[i][j].len() {
+                    COSTS[i][j][k] = u64::MAX;
+                }
+            }
+        }
+    }
+}
+fn get_cost(step: &Step) -> u64 {
+    unsafe { COSTS[step.pt.0 as usize][step.pt.1 as usize][step.dir as usize] }
+}
+fn set_cost(step: Step, cost: u64) {
+    unsafe {
+        COSTS[step.pt.0 as usize][step.pt.1 as usize][step.dir as usize] = cost;
+    }
 }
 
-fn min_path(grid: &Grid, start: Pt, end: Pt) -> Option<u64> {
+fn min_path2(grid: &Grid, start: Pt, end: Pt) -> Option<u64> {
     init_q();
     init_costs();
-    let start = Step { pt: start, dir: Dir::None, steps: 0 };
-    push_q(start, 0);
-    while let Some((cost, step @ Step { pt, .. })) = pop_q() {
-        if pt == end {
+
+    // TODO: simplify wrt all the type casts
+    let start = Step { pt: start, dir: Dir::Right };
+    for (cost, step) in [start.go(Dir::Right, grid).unwrap(), start.go(Dir::Down, grid).unwrap()] {
+        push_q(step, cost);
+        set_cost(step, cost);
+    }
+    while let Some((cost, step)) = pop_q() {
+        if step.pt == end {
             return Some(cost);
         }
-        for nbr_step in neighbors(grid, &step) {
-            let nbr_cost = cost + grid[nbr_step.pt.0 as usize][nbr_step.pt.1 as usize] as u64;
+        for (nbr_step_cost, nbr_step) in neighbors2(grid, step) {
+            let nbr_cost = cost + nbr_step_cost;
             if nbr_cost < get_cost(&nbr_step) {
                 push_q(nbr_step, nbr_cost);
                 set_cost(nbr_step, nbr_cost);
@@ -122,7 +151,11 @@ pub fn part1(input: &str) -> u64 {
     let grid = parse(input);
     let start = (0, 0);
     let end = (grid.len() as u8 - 1, grid[0].len() as u8 - 1);
-    min_path(&grid, start, end).unwrap()
+    min_path2(&grid, start, end).unwrap()
+}
+
+pub fn part2(input: &str) -> u64 {
+    0
 }
 
 #[cfg(test)]
@@ -149,7 +182,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_real() {
         let input = include_str!("../inputs/day17.txt");
         assert_eq!(part1(input), 0);
