@@ -1,12 +1,12 @@
 use heapless::{
     binary_heap::{BinaryHeap, Min},
-    FnvIndexMap, Vec,
+    Vec,
 };
 use libc_print::std_name::*;
 
 type Pt = (u8, u8);
 type Grid = Vec<Vec<u8, 256>, 256>;
-type MinQueue<T> = BinaryHeap<T, Min, 65536>;
+type MinQueue<T> = BinaryHeap<T, Min, 8192>;
 type Costs = Vec<Vec<[u64; 4], 256>, 256>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -55,43 +55,31 @@ impl Step {
     }
 }
 
-fn neighbors2(grid: &Grid, step: Step) -> Vec<(u64, Step), 6> {
+fn neighbors(grid: &Grid, mut cur: Step, min: u8, max: u8) -> Vec<(u64, Step), 16> {
     let mut nbrs = Vec::new();
-    for dir in step.dir.turns() {
-        if let Some(next) = step.go(dir, grid) {
-            nbrs.push(next).unwrap();
-        }
+    let mut cost = 0;
+    for _ in 0..min {
+        let (step_cost, step) = match cur.advance(grid) {
+            Some(next) => next,
+            None => {
+                return Vec::new();
+            }
+        };
+        cost += step_cost;
+        cur = step;
     }
-    if let Some((one_cost, one_step)) = step.advance(grid) {
-        for turn in one_step.dir.turns() {
-            if let Some((turn_cost, turn_step)) = one_step.go(turn, grid) {
-                nbrs.push((one_cost + turn_cost, turn_step)).unwrap();
-            }
+    for _ in 0..max - min + 1 {
+        for dir in cur.dir.turns() {
+            nbrs.push((cost, Step { pt: cur.pt, dir })).unwrap();
         }
-        if let Some((two_cost, two_step)) = one_step.advance(grid) {
-            for turn in two_step.dir.turns() {
-                if let Some((turn_cost, turn_step)) = two_step.go(turn, grid) {
-                    nbrs.push((one_cost + two_cost + turn_cost, turn_step)).unwrap();
-                }
-            }
-        }
+        let (step_cost, step) = match cur.advance(grid) {
+            Some(next) => next,
+            None => break,
+        };
+        cost += step_cost;
+        cur = step;
     }
     nbrs
-}
-
-static mut Q: MinQueue<(u64, Step)> = MinQueue::new();
-fn init_q() {
-    unsafe {
-        Q.clear();
-    }
-}
-fn pop_q() -> Option<(u64, Step)> {
-    unsafe { Q.pop() }
-}
-fn push_q(step: Step, cost: u64) {
-    unsafe {
-        Q.push((cost, step)).unwrap();
-    }
 }
 
 static mut COSTS: Costs = Costs::new();
@@ -118,24 +106,24 @@ fn set_cost(step: Step, cost: u64) {
     }
 }
 
-fn min_path2(grid: &Grid, start: Pt, end: Pt) -> Option<u64> {
-    init_q();
+fn min_path(grid: &Grid, start: Pt, end: Pt, min_steps: u8, max_steps: u8) -> Option<u64> {
+    let mut q = MinQueue::new();
     init_costs();
 
     // TODO: simplify wrt all the type casts
-    let start = Step { pt: start, dir: Dir::Right };
-    for (cost, step) in [start.go(Dir::Right, grid).unwrap(), start.go(Dir::Down, grid).unwrap()] {
-        push_q(step, cost);
-        set_cost(step, cost);
+    for dir in [Dir::Right, Dir::Down] {
+        let step = Step { pt: start, dir };
+        q.push((0, step)).unwrap();
+        set_cost(step, 0);
     }
-    while let Some((cost, step)) = pop_q() {
+    while let Some((cost, step)) = q.pop() {
         if step.pt == end {
             return Some(cost);
         }
-        for (nbr_step_cost, nbr_step) in neighbors2(grid, step) {
+        for (nbr_step_cost, nbr_step) in neighbors(grid, step, min_steps, max_steps) {
             let nbr_cost = cost + nbr_step_cost;
             if nbr_cost < get_cost(&nbr_step) {
-                push_q(nbr_step, nbr_cost);
+                q.push((nbr_cost, nbr_step)).unwrap();
                 set_cost(nbr_step, nbr_cost);
             }
         }
@@ -151,11 +139,14 @@ pub fn part1(input: &str) -> u64 {
     let grid = parse(input);
     let start = (0, 0);
     let end = (grid.len() as u8 - 1, grid[0].len() as u8 - 1);
-    min_path2(&grid, start, end).unwrap()
+    min_path(&grid, start, end, 1, 3).unwrap()
 }
 
 pub fn part2(input: &str) -> u64 {
-    0
+    let grid = parse(input);
+    let start = (0, 0);
+    let end = (grid.len() as u8 - 1, grid[0].len() as u8 - 1);
+    min_path(&grid, start, end, 4, 10).unwrap()
 }
 
 #[cfg(test)]
@@ -179,9 +170,11 @@ mod test {
 4322674655533
 ";
         assert_eq!(part1(input), 102);
+        assert_eq!(part2(input), 94);
 
         // real
         let input = include_str!("../inputs/day17.txt");
         assert_eq!(part1(input), 1263);
+        //assert_eq!(part2(input), 0);
     }
 }
