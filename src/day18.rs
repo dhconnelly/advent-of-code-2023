@@ -1,17 +1,8 @@
-use core::iter::Peekable;
 use heapless::{FnvIndexMap, Vec};
 use libc_print::std_name::*;
 
-type Color = u32;
 type Pt = (i64, i64);
 const START: Pt = (0, 0);
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Tile {
-    Empty,
-    Dug,
-    Trench(Color),
-}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Dir {
@@ -40,17 +31,12 @@ fn sub((r1, c1): Pt, (r2, c2): Pt) -> Pt {
     (r1 - r2, c1 - c2)
 }
 
-fn times((r, c): Pt, n: i64) -> Pt {
-    (r * n, c * n)
-}
-
 struct Command {
     dir: Dir,
     dist: i64,
-    col: Color,
 }
 
-fn parse(input: &str) -> impl Iterator<Item = Command> + '_ {
+fn parse(input: &str) -> impl Iterator<Item = (Command, Command)> + '_ {
     input.lines().map(|line: &str| {
         let mut toks = line.split(' ');
         let dir = match toks.next().unwrap() {
@@ -61,9 +47,20 @@ fn parse(input: &str) -> impl Iterator<Item = Command> + '_ {
             _ => panic!("invalid direction"),
         };
         let dist = toks.next().unwrap().parse().unwrap();
-        let col = toks.next().unwrap();
-        let col = u32::from_str_radix(&col[2..col.len() - 1], 16).unwrap();
-        Command { dir, dist, col }
+        let cmd1 = Command { dir, dist };
+
+        let hex = toks.next().unwrap();
+        let dist = i64::from_str_radix(&hex[2..7], 16).unwrap();
+        let dir = match hex.as_bytes()[7] {
+            b'0' => Dir::Right,
+            b'1' => Dir::Down,
+            b'2' => Dir::Left,
+            b'3' => Dir::Up,
+            _ => panic!("invalid direction"),
+        };
+        let cmd2 = Command { dir, dist };
+
+        (cmd1, cmd2)
     })
 }
 
@@ -116,7 +113,12 @@ fn interior(cmds: &[Command]) -> i64 {
 }
 
 pub fn part1(input: &str) -> i64 {
-    let commands: Vec<Command, 1024> = parse(input).collect();
+    let commands: Vec<Command, 1024> = parse(input).map(|x| x.0).collect();
+    interior(&commands) + length(commands.iter())
+}
+
+pub fn part2(input: &str) -> i64 {
+    let commands: Vec<Command, 1024> = parse(input).map(|x| x.1).collect();
     interior(&commands) + length(commands.iter())
 }
 
@@ -142,11 +144,13 @@ L 2 (#015232)
 U 2 (#7a21e3)
 ";
         assert_eq!(part1(input), 62);
+        //assert_eq!(part2(input), 62);
     }
 
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day18.txt");
         assert_eq!(part1(input), 40761);
+        //assert_eq!(part2(input), 40761);
     }
 }
