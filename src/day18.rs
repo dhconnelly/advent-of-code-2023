@@ -147,6 +147,6 @@ U 2 (#7a21e3)
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day18.txt");
-        assert_eq!(part1(input), 62);
+        assert_eq!(part1(input), 40761);
     }
 }
