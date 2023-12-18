@@ -3,7 +3,7 @@ use heapless::{FnvIndexMap, Vec};
 use libc_print::std_name::*;
 
 type Color = u32;
-type Pt = (i16, i16);
+type Pt = (i64, i64);
 const START: Pt = (0, 0);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -40,13 +40,13 @@ fn sub((r1, c1): Pt, (r2, c2): Pt) -> Pt {
     (r1 - r2, c1 - c2)
 }
 
-fn times((r, c): Pt, n: i16) -> Pt {
+fn times((r, c): Pt, n: i64) -> Pt {
     (r * n, c * n)
 }
 
 struct Command {
     dir: Dir,
-    dist: i16,
+    dist: i64,
     col: Color,
 }
 
@@ -67,13 +67,13 @@ fn parse(input: &str) -> impl Iterator<Item = Command> + '_ {
     })
 }
 
-fn length<'a>(trench: impl Iterator<Item = &'a Command>) -> usize {
-    trench.map(|Command { dist, .. }| *dist as usize).sum()
+fn length<'a>(trench: impl Iterator<Item = &'a Command>) -> i64 {
+    trench.map(|Command { dist, .. }| *dist).sum()
 }
 
-fn interior(cmds: &[Command]) -> usize {
+fn interior(cmds: &[Command]) -> i64 {
     use Dir::*;
-    let mut rows: FnvIndexMap<i16, Vec<i16, 32>, 1024> = FnvIndexMap::new();
+    let mut rows: FnvIndexMap<i64, Vec<i64, 32>, 1024> = FnvIndexMap::new();
     let mut push = |(row, col): Pt| {
         if let Some(cols) = rows.get_mut(&row) {
             cols.push(col).unwrap();
@@ -107,7 +107,7 @@ fn interior(cmds: &[Command]) -> usize {
         let mut i = 0;
         while i < row.len() - 1 {
             let (a, b) = (row[i], row[i + 1]);
-            area += (b - a - 1) as usize;
+            area += b - a - 1;
             i += 2;
         }
     }
@@ -115,7 +115,7 @@ fn interior(cmds: &[Command]) -> usize {
     area
 }
 
-pub fn part1(input: &str) -> usize {
+pub fn part1(input: &str) -> i64 {
     let commands: Vec<Command, 1024> = parse(input).collect();
     interior(&commands) + length(commands.iter())
 }
