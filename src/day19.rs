@@ -3,10 +3,12 @@ use heapless::{FnvIndexMap, Vec};
 // =============================================================================
 // workflows
 
-#[derive(Clone, Copy, Debug)]
-enum Op {
-    Lt,
-    Gt,
+type Workflows<'a> = FnvIndexMap<&'a str, Workflow<'a>, 1024>;
+
+#[derive(Clone, Debug)]
+struct Workflow<'a> {
+    conds: Vec<Rule<'a>, 4>,
+    alt: &'a str,
 }
 
 #[derive(Clone, Debug)]
@@ -17,13 +19,11 @@ struct Rule<'a> {
     target: &'a str,
 }
 
-#[derive(Clone, Debug)]
-struct Workflow<'a> {
-    conds: Vec<Rule<'a>, 4>,
-    alt: &'a str,
+#[derive(Clone, Copy, Debug)]
+enum Op {
+    Lt,
+    Gt,
 }
-
-type Workflows<'a> = FnvIndexMap<&'a str, Workflow<'a>, 1024>;
 
 // =============================================================================
 // workflow application
@@ -63,8 +63,8 @@ fn sum_ratings(workflows: &Workflows, parts: &Parts) -> i64 {
 // =============================================================================
 // workflow simulation
 
-type Range = (i16, i16);
 type AbstractPart = [Range; 4];
+type Range = (i16, i16);
 
 fn update_part(mut part: AbstractPart, var: u8, with: Range) -> AbstractPart {
     part[var as usize] = with;
@@ -89,15 +89,15 @@ fn satisfy_op(op: Op, lhs: Range, rhs: i16) -> Option<Range> {
 }
 
 fn satisfy_workflow<'a, const N: usize>(
-    workflow: &'a Workflow,
+    label: &'a str,
     mut part: AbstractPart,
     workflows: &Workflows,
     valids: &mut Vec<AbstractPart, N>,
 ) {
-    let mut satisfy = |label, part| match label {
-        "R" => {}
-        "A" => valids.push(part).unwrap(),
-        target => satisfy_workflow(workflows.get(target).unwrap(), part, workflows, valids),
+    let workflow = match label {
+        "R" => return,
+        "A" => return valids.push(part).unwrap(),
+        _ => workflows.get(label).unwrap(),
     };
     for Rule { var, op, arg, target } in &workflow.conds {
         let x = part[*var as usize];
@@ -105,10 +105,10 @@ fn satisfy_workflow<'a, const N: usize>(
             None => continue,
             Some(y) => y,
         };
-        satisfy(*target, update_part(part.clone(), *var, y));
+        satisfy_workflow(target, update_part(part, *var, y), workflows, valids);
         part[*var as usize] = remove_range(x, y);
     }
-    satisfy(workflow.alt, part);
+    satisfy_workflow(workflow.alt, part, workflows, valids);
 }
 
 fn count_valid(part: &AbstractPart) -> i64 {
@@ -118,7 +118,7 @@ fn count_valid(part: &AbstractPart) -> i64 {
 fn total_valid(workflows: &Workflows) -> i64 {
     let part = [(1, 4000); 4];
     let mut valids: Vec<AbstractPart, 1024> = Vec::new();
-    satisfy_workflow(workflows.get("in").unwrap(), part, workflows, &mut valids);
+    satisfy_workflow("in", part, workflows, &mut valids);
     valids.iter().map(count_valid).sum()
 }
 
@@ -128,8 +128,8 @@ fn total_valid(workflows: &Workflows) -> i64 {
 fn parse_workflow(line: &str) -> (&str, Workflow) {
     let (label, rest) = line.split_once('{').unwrap();
     let mut rules = rest[..rest.len() - 1].split(',').rev();
-    let els = rules.next().unwrap();
-    let ifs = rules
+    let alt = rules.next().unwrap();
+    let conds = rules
         .map(|rule| {
             let var = match rule.as_bytes()[0] {
                 b'x' => 0,
@@ -149,13 +149,16 @@ fn parse_workflow(line: &str) -> (&str, Workflow) {
         })
         .rev()
         .collect();
-    (label, Workflow { conds: ifs, alt: els })
+    (label, Workflow { conds, alt })
 }
 
 fn parse_part(line: &str) -> Part {
-    let line = &line[1..line.len() - 1];
-    let part: Vec<i16, 4> = line.split(',').map(|tok| tok[2..].parse().unwrap()).take(4).collect();
-    part.into_array().unwrap()
+    line[1..line.len() - 1]
+        .split(',')
+        .map(|tok| tok[2..].parse().unwrap())
+        .collect::<Vec<i16, 4>>()
+        .into_array()
+        .unwrap()
 }
 
 fn parse(input: &str) -> (Workflows, Parts) {
