@@ -5,21 +5,18 @@ use heapless::{FnvIndexMap, Vec};
 
 type Workflows<'a> = FnvIndexMap<&'a str, Workflow<'a>, 1024>;
 
-#[derive(Clone, Debug)]
 struct Workflow<'a> {
     conds: Vec<Rule<'a>, 4>,
     alt: &'a str,
 }
 
-#[derive(Clone, Debug)]
 struct Rule<'a> {
-    var: u8,
+    var: usize,
     op: Op,
     arg: i16,
     target: &'a str,
 }
 
-#[derive(Clone, Copy, Debug)]
 enum Op {
     Lt,
     Gt,
@@ -31,7 +28,7 @@ enum Op {
 type Parts = Vec<Part, 1024>;
 type Part = [i16; 4];
 
-fn apply_op(op: Op, lhs: i16, rhs: i16) -> bool {
+fn apply_op(op: &Op, lhs: i16, rhs: i16) -> bool {
     match op {
         Op::Lt => lhs < rhs,
         Op::Gt => lhs > rhs,
@@ -40,7 +37,7 @@ fn apply_op(op: Op, lhs: i16, rhs: i16) -> bool {
 
 fn apply_workflow<'a>(workflow: &'a Workflow, part: &Part) -> &'a str {
     for rule in &workflow.conds {
-        if apply_op(rule.op, part[rule.var as usize], rule.arg) {
+        if apply_op(&rule.op, part[rule.var as usize], rule.arg) {
             return rule.target;
         }
     }
@@ -63,15 +60,11 @@ fn sum_ratings(workflows: &Workflows, parts: &Parts) -> i64 {
 // =============================================================================
 // workflow simulation
 
+type AbstractParts = Vec<AbstractPart, 1024>;
 type AbstractPart = [Range; 4];
 type Range = (i16, i16);
 
-fn update_part(mut part: AbstractPart, var: u8, with: Range) -> AbstractPart {
-    part[var as usize] = with;
-    part
-}
-
-fn remove_range(outer: Range, inner: Range) -> Range {
+fn range_complement(outer: Range, inner: Range) -> Range {
     if outer.0 == inner.0 {
         (inner.1 + 1, outer.1)
     } else {
@@ -79,7 +72,7 @@ fn remove_range(outer: Range, inner: Range) -> Range {
     }
 }
 
-fn satisfy_op(op: Op, lhs: Range, rhs: i16) -> Option<Range> {
+fn satisfy_op(op: &Op, lhs: Range, rhs: i16) -> Option<Range> {
     match op {
         Op::Lt if lhs.0 >= rhs => None,
         Op::Lt => Some((lhs.0, lhs.1.min(rhs - 1))),
@@ -88,27 +81,27 @@ fn satisfy_op(op: Op, lhs: Range, rhs: i16) -> Option<Range> {
     }
 }
 
-fn satisfy_workflow<'a, const N: usize>(
-    label: &'a str,
+fn satisfy_workflow(
+    label: &str,
     mut part: AbstractPart,
     workflows: &Workflows,
-    valids: &mut Vec<AbstractPart, N>,
+    valid: &mut AbstractParts,
 ) {
     let workflow = match label {
         "R" => return,
-        "A" => return valids.push(part).unwrap(),
+        "A" => return valid.push(part).unwrap(),
         _ => workflows.get(label).unwrap(),
     };
     for Rule { var, op, arg, target } in &workflow.conds {
         let x = part[*var as usize];
-        let y = match satisfy_op(*op, x, *arg) {
-            None => continue,
-            Some(y) => y,
-        };
-        satisfy_workflow(target, update_part(part, *var, y), workflows, valids);
-        part[*var as usize] = remove_range(x, y);
+        if let Some(y) = satisfy_op(op, x, *arg) {
+            let mut next = part;
+            next[*var] = y;
+            satisfy_workflow(target, next, workflows, valid);
+            part[*var as usize] = range_complement(x, y);
+        }
     }
-    satisfy_workflow(workflow.alt, part, workflows, valids);
+    satisfy_workflow(workflow.alt, part, workflows, valid);
 }
 
 fn count_valid(part: &AbstractPart) -> i64 {
@@ -117,9 +110,9 @@ fn count_valid(part: &AbstractPart) -> i64 {
 
 fn total_valid(workflows: &Workflows) -> i64 {
     let part = [(1, 4000); 4];
-    let mut valids: Vec<AbstractPart, 1024> = Vec::new();
-    satisfy_workflow("in", part, workflows, &mut valids);
-    valids.iter().map(count_valid).sum()
+    let mut valid = AbstractParts::new();
+    satisfy_workflow("in", part, workflows, &mut valid);
+    valid.iter().map(count_valid).sum()
 }
 
 // =============================================================================
