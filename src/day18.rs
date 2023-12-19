@@ -1,37 +1,10 @@
-use libc_print::std_name::*;
-
 type Vec<T> = heapless::Vec<T, 1024>;
-type Range = (i64, i64);
 type Pt = (i64, i64);
-const START: Pt = (0, 0);
 
-#[derive(Clone, Debug)]
-enum Intersection {
-    None,
-    Contained,
-    Split2 { intersection: Range, remaining: Range },
-    Split3 { intersection: Range, remaining: (Range, Range) },
-}
-
-fn intersect(of: Range, with: Range) -> Intersection {
-    if of.1 < with.0 || of.0 > with.1 {
-        Intersection::None
-    } else if of.0 >= with.0 && of.1 <= with.1 {
-        Intersection::Contained
-    } else if of.0 < with.0 && of.1 > with.1 {
-        Intersection::Split3 {
-            intersection: with,
-            remaining: ((of.0, with.0 - 1), (with.1 + 1, of.1)),
-        }
-    } else {
-        let intersection = (of.0.max(with.0), of.1.min(with.1));
-        let remaining = if of.0 < intersection.0 {
-            (of.0, intersection.0 - 1)
-        } else {
-            (intersection.1 + 1, of.1)
-        };
-        Intersection::Split2 { intersection, remaining }
-    }
+#[derive(Clone, Copy, Debug)]
+struct Command {
+    dir: Dir,
+    dist: i64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -57,22 +30,38 @@ fn add((r1, c1): Pt, (r2, c2): Pt) -> Pt {
     (r1 + r2, c1 + c2)
 }
 
-fn sub((r1, c1): Pt, (r2, c2): Pt) -> Pt {
-    (r1 - r2, c1 - c2)
-}
-
 fn times((r, c): Pt, n: i64) -> Pt {
     (r * n, c * n)
 }
 
-#[derive(Clone, Debug)]
-struct Command {
-    dir: Dir,
-    dist: i64,
+fn det((y1, x1): Pt, (y2, x2): Pt) -> i64 {
+    x1 * y2 - x2 * y1
+}
+
+fn interior(cmds: &[Command]) -> i64 {
+    // https://en.wikipedia.org/wiki/Shoelace_formula
+    use Dir::*;
+    let mut area = 0;
+    let (mut prev, mut prev_pt) = ((0, 0), (0, 0));
+    for i in 0..cmds.len() {
+        let (cur_cmd, next_cmd) = (cmds[i], cmds[(i + 1) % cmds.len()]);
+        let cur @ (row, col) = add(prev, times(cur_cmd.dir.vec(), cur_cmd.dist));
+        let pt = match (cur_cmd.dir, next_cmd.dir) {
+            (Up, Right) | (Right, Up) => cur,
+            (Right, Down) | (Down, Right) => (row, col + 1),
+            (Down, Left) | (Left, Down) => (row + 1, col + 1),
+            (Left, Up) | (Up, Left) => (row + 1, col),
+            _ => unreachable!(),
+        };
+        area += det(prev_pt, pt);
+        (prev, prev_pt) = (cur, pt);
+    }
+    area / 2
 }
 
 fn parse(input: &str) -> impl Iterator<Item = (Command, Command)> + '_ {
     input.lines().map(|line: &str| {
+        // part 1
         let mut toks = line.split(' ');
         let dir = match toks.next().unwrap() {
             "U" => Dir::Up,
@@ -84,6 +73,7 @@ fn parse(input: &str) -> impl Iterator<Item = (Command, Command)> + '_ {
         let dist = toks.next().unwrap().parse().unwrap();
         let cmd1 = Command { dir, dist };
 
+        // part 2
         let hex = toks.next().unwrap();
         let dist = i64::from_str_radix(&hex[2..7], 16).unwrap();
         let dir = match hex.as_bytes()[7] {
@@ -99,87 +89,6 @@ fn parse(input: &str) -> impl Iterator<Item = (Command, Command)> + '_ {
     })
 }
 
-fn length<'a>(trench: impl Iterator<Item = &'a Command>) -> i64 {
-    trench.map(|Command { dist, .. }| *dist).sum()
-}
-
-fn interior(cmds: &[Command]) -> i64 {
-    let mut lrs: Vec<(i64, Range)> = Vec::new();
-    let mut rls: Vec<(i64, Range)> = Vec::new();
-
-    let mut cur = START;
-    for cmd in cmds {
-        let next = add(cur, times(cmd.dir.vec(), cmd.dist));
-        match cmd.dir {
-            Dir::Right => lrs.push((cur.0, (cur.1, next.1))).unwrap(),
-            Dir::Left => rls.push((cur.0, (next.1, cur.1))).unwrap(),
-            _ => (),
-        }
-        cur = next;
-    }
-
-    lrs.sort();
-    rls.sort();
-
-    let mut area = 0;
-    let mut i = 0;
-    while i < lrs.len() {
-        let row1 = lrs[i].0;
-        let lr = lrs[i].1;
-        let prev_area = area;
-        let mut found = false;
-        for (row2, rl) in rls.iter().filter(|(row2, _)| row2 > &row1) {
-            match intersect(lr, *rl) {
-                Intersection::None => continue,
-                Intersection::Contained => {
-                    println!("{} {} {:?} {:?} {:?}", row1, row2, lr, rl, intersect(lr, *rl));
-                    area += (lr.1 - lr.0 + 1) * (row2 - row1 + 1);
-                    found = true;
-                    break;
-                }
-                Intersection::Split2 { intersection, remaining } => {
-                    println!("{} {} {:?} {:?} {:?}", row1, row2, lr, rl, intersect(lr, *rl));
-                    lrs.push((row1, remaining)).unwrap();
-                    area += (intersection.1 - intersection.0 + 1) * (row2 - row1 + 1);
-                    found = true;
-                    break;
-                }
-                Intersection::Split3 { intersection, remaining } => {
-                    println!("{} {} {:?} {:?} {:?}", row1, row2, lr, rl, intersect(lr, *rl));
-                    lrs.push((row1, remaining.0)).unwrap();
-                    lrs.push((row1, remaining.1)).unwrap();
-                    area += (intersection.1 - intersection.0 + 1) * (row2 - row1 + 1);
-                    found = true;
-                    break;
-                }
-            }
-        }
-        assert!(found);
-        i += 1;
-        println!("{} {}", area - prev_area, area);
-    }
-    println!("{}", area);
-
-    // collect missing pieces
-    use Dir::*;
-    let mut prev = &cmds[cmds.len() - 1];
-    for i in 0..cmds.len() {
-        let cur = &cmds[i];
-        let next = &cmds[(i + 1) % cmds.len()];
-        match (prev.dir, cur.dir, next.dir) {
-            (Left, Up, Left) => area += cur.dist,
-            (Right, Up, Left) => area += cur.dist - 1,
-            (Left, Down, Left) => area += cur.dist,
-            (Left, Down, Right) => area += cur.dist - 1,
-            _ => (),
-        }
-        println!("{}", area);
-        prev = cur;
-    }
-
-    area
-}
-
 pub fn part1(input: &str) -> i64 {
     let commands: Vec<Command> = parse(input).map(|x| x.0).collect();
     interior(&commands)
@@ -187,9 +96,6 @@ pub fn part1(input: &str) -> i64 {
 
 pub fn part2(input: &str) -> i64 {
     let commands: Vec<Command> = parse(input).map(|x| x.1).collect();
-    for cmd in &commands {
-        println!("{:?}", cmd);
-    }
     interior(&commands)
 }
 
@@ -215,7 +121,7 @@ L 2 (#015232)
 U 2 (#7a21e3)
 ";
         assert_eq!(part1(input), 62);
-        //assert_eq!(part2(input), 952408144115);
+        assert_eq!(part2(input), 952408144115);
     }
 
     #[test]
@@ -258,6 +164,6 @@ U 7 (#aaaaa1)
     fn test_real() {
         let input = include_str!("../inputs/day18.txt");
         assert_eq!(part1(input), 40761);
-        //assert_eq!(part2(input), 40761);
+        assert_eq!(part2(input), 106920098354636);
     }
 }
