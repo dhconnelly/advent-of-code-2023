@@ -74,25 +74,21 @@ impl<'a> Workflow<'a> {
         workflows: &Workflows,
         valids: &mut Vec<AbstractPart, N>,
     ) {
+        let mut resolve = |label, part| match label {
+            "R" => {}
+            "A" => valids.push(part).unwrap(),
+            target => workflows.get(target).unwrap().simulate(part, workflows, valids),
+        };
         for Rule { var, op, arg, target } in &self.conds {
             let x = part[*var as usize];
             let y = match op.simulate(x, *arg) {
                 None => continue,
                 Some(y) => y,
             };
-            let next = update(part.clone(), *var, y);
-            match *target {
-                "R" => {}
-                "A" => valids.push(next).unwrap(),
-                _ => workflows.get(target).unwrap().simulate(next, workflows, valids),
-            }
+            resolve(*target, update(part.clone(), *var, y));
             part[*var as usize] = sub(x, y);
         }
-        match self.alt {
-            "A" => valids.push(part.clone()).unwrap(),
-            "R" => return,
-            target => workflows.get(target).unwrap().simulate(part, workflows, valids),
-        }
+        resolve(self.alt, part);
     }
 }
 
