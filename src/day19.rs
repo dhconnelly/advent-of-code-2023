@@ -1,9 +1,24 @@
 use heapless::{FnvIndexMap, Vec};
-use libc_print::std_name::*;
 
 type Workflows<'a> = FnvIndexMap<&'a str, Workflow<'a>, 1024>;
 type Parts = Vec<Part, 1024>;
 type Part = [i16; 4];
+
+type Range = (i16, i16);
+type AbstractPart = [Range; 4];
+
+fn update(mut part: AbstractPart, var: u8, with: Range) -> AbstractPart {
+    part[var as usize] = with;
+    part
+}
+
+fn sub(outer: Range, inner: Range) -> Range {
+    if outer.0 == inner.0 {
+        (inner.1 + 1, outer.1)
+    } else {
+        (outer.0, inner.0 - 1)
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 enum Op {
@@ -18,6 +33,15 @@ impl Op {
             Op::Gt => lhs > rhs,
         }
     }
+
+    fn simulate(self, lhs: Range, rhs: i16) -> Option<Range> {
+        match self {
+            Op::Lt if lhs.0 >= rhs => None,
+            Op::Lt => Some((lhs.0, lhs.1.min(rhs - 1))),
+            Op::Gt if lhs.1 <= rhs => None,
+            Op::Gt => Some((lhs.0.max(rhs + 1), lhs.1)),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -30,31 +54,65 @@ struct Rule<'a> {
 
 #[derive(Clone, Debug)]
 struct Workflow<'a> {
-    ifs: Vec<Rule<'a>, 4>,
-    els: &'a str,
+    conds: Vec<Rule<'a>, 4>,
+    alt: &'a str,
 }
 
 impl<'a> Workflow<'a> {
     fn apply(&'a self, part: &Part) -> &'a str {
-        for rule in &self.ifs {
+        for rule in &self.conds {
             if rule.op.apply(part[rule.var as usize], rule.arg) {
                 return rule.target;
             }
         }
-        self.els
+        self.alt
+    }
+
+    fn simulate<const N: usize>(
+        &'a self,
+        mut part: AbstractPart,
+        workflows: &Workflows,
+        valids: &mut Vec<AbstractPart, N>,
+    ) {
+        for Rule { var, op, arg, target } in &self.conds {
+            let x = part[*var as usize];
+            let y = match op.simulate(x, *arg) {
+                None => continue,
+                Some(y) => y,
+            };
+            let next = update(part.clone(), *var, y);
+            match *target {
+                "R" => {}
+                "A" => valids.push(next).unwrap(),
+                _ => workflows.get(target).unwrap().simulate(next, workflows, valids),
+            }
+            part[*var as usize] = sub(x, y);
+        }
+        match self.alt {
+            "A" => valids.push(part.clone()).unwrap(),
+            "R" => return,
+            target => workflows.get(target).unwrap().simulate(part, workflows, valids),
+        }
     }
 }
 
 fn process(workflows: &Workflows, part: &Part) -> bool {
     let mut label = "in";
-    loop {
-        let workflow = workflows.get(&label).unwrap();
-        label = workflow.apply(&part);
-        if label == "A" || label == "R" {
-            break;
-        }
+    while label != "A" && label != "R" {
+        label = workflows.get(&label).unwrap().apply(&part);
     }
     label == "A"
+}
+
+fn valid_combos(part: &AbstractPart) -> i64 {
+    part.iter().map(|(a, b)| (b - a + 1) as i64).product()
+}
+
+fn all_valid(workflows: &Workflows) -> i64 {
+    let part = [(1, 4000); 4];
+    let mut valids: Vec<AbstractPart, 1024> = Vec::new();
+    workflows.get("in").unwrap().simulate(part, workflows, &mut valids);
+    valids.iter().map(valid_combos).sum()
 }
 
 fn parse_workflow(line: &str) -> (&str, Workflow) {
@@ -81,7 +139,7 @@ fn parse_workflow(line: &str) -> (&str, Workflow) {
         })
         .rev()
         .collect();
-    (label, Workflow { ifs, els })
+    (label, Workflow { conds: ifs, alt: els })
 }
 
 fn parse_part(line: &str) -> Part {
@@ -99,8 +157,13 @@ fn parse(input: &str) -> (Workflows, Parts) {
 
 pub fn part1(input: &str) -> i64 {
     let (workflows, parts) = parse(input);
-    let part_sum = |part: &Part| part[0] as i64 + part[1] as i64 + part[2] as i64 + part[3] as i64;
-    parts.iter().filter(|part| process(&workflows, *part)).map(part_sum).sum()
+    let sum = |part: &Part| -> i64 { part.iter().map(|x| *x as i64).sum() };
+    parts.iter().filter(|part| process(&workflows, *part)).map(sum).sum()
+}
+
+pub fn part2(input: &str) -> i64 {
+    let workflows = parse(input).0;
+    all_valid(&workflows)
 }
 
 #[cfg(test)]
@@ -128,11 +191,13 @@ hdj{m>838:A,pv}
 {x=2127,m=1623,a=2188,s=1013}
 ";
         assert_eq!(part1(input), 19114);
+        assert_eq!(part2(input), 167409079868000);
     }
 
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day19.txt");
         assert_eq!(part1(input), 367602);
+        assert_eq!(part2(input), 125317461667458);
     }
 }
