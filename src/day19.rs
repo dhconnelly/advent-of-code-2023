@@ -3,22 +3,8 @@ use heapless::{FnvIndexMap, Vec};
 type Workflows<'a> = FnvIndexMap<&'a str, Workflow<'a>, 1024>;
 type Parts = Vec<Part, 1024>;
 type Part = [i16; 4];
-
 type Range = (i16, i16);
 type AbstractPart = [Range; 4];
-
-fn update(mut part: AbstractPart, var: u8, with: Range) -> AbstractPart {
-    part[var as usize] = with;
-    part
-}
-
-fn sub(outer: Range, inner: Range) -> Range {
-    if outer.0 == inner.0 {
-        (inner.1 + 1, outer.1)
-    } else {
-        (outer.0, inner.0 - 1)
-    }
-}
 
 #[derive(Clone, Copy, Debug)]
 enum Op {
@@ -41,6 +27,19 @@ impl Op {
             Op::Gt if lhs.1 <= rhs => None,
             Op::Gt => Some((lhs.0.max(rhs + 1), lhs.1)),
         }
+    }
+}
+
+fn update(mut part: AbstractPart, var: u8, with: Range) -> AbstractPart {
+    part[var as usize] = with;
+    part
+}
+
+fn sub(outer: Range, inner: Range) -> Range {
+    if outer.0 == inner.0 {
+        (inner.1 + 1, outer.1)
+    } else {
+        (outer.0, inner.0 - 1)
     }
 }
 
