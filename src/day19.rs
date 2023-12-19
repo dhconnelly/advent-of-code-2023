@@ -1,46 +1,12 @@
 use heapless::{FnvIndexMap, Vec};
 
-type Workflows<'a> = FnvIndexMap<&'a str, Workflow<'a>, 1024>;
-type Parts = Vec<Part, 1024>;
-type Part = [i16; 4];
-type Range = (i16, i16);
-type AbstractPart = [Range; 4];
+// =============================================================================
+// workflows
 
 #[derive(Clone, Copy, Debug)]
 enum Op {
     Lt,
     Gt,
-}
-
-impl Op {
-    fn apply(self, lhs: i16, rhs: i16) -> bool {
-        match self {
-            Op::Lt => lhs < rhs,
-            Op::Gt => lhs > rhs,
-        }
-    }
-
-    fn simulate(self, lhs: Range, rhs: i16) -> Option<Range> {
-        match self {
-            Op::Lt if lhs.0 >= rhs => None,
-            Op::Lt => Some((lhs.0, lhs.1.min(rhs - 1))),
-            Op::Gt if lhs.1 <= rhs => None,
-            Op::Gt => Some((lhs.0.max(rhs + 1), lhs.1)),
-        }
-    }
-}
-
-fn update(mut part: AbstractPart, var: u8, with: Range) -> AbstractPart {
-    part[var as usize] = with;
-    part
-}
-
-fn sub(outer: Range, inner: Range) -> Range {
-    if outer.0 == inner.0 {
-        (inner.1 + 1, outer.1)
-    } else {
-        (outer.0, inner.0 - 1)
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -57,58 +23,107 @@ struct Workflow<'a> {
     alt: &'a str,
 }
 
-impl<'a> Workflow<'a> {
-    fn apply(&'a self, part: &Part) -> &'a str {
-        for rule in &self.conds {
-            if rule.op.apply(part[rule.var as usize], rule.arg) {
-                return rule.target;
-            }
-        }
-        self.alt
-    }
+type Workflows<'a> = FnvIndexMap<&'a str, Workflow<'a>, 1024>;
 
-    fn simulate<const N: usize>(
-        &'a self,
-        mut part: AbstractPart,
-        workflows: &Workflows,
-        valids: &mut Vec<AbstractPart, N>,
-    ) {
-        let mut resolve = |label, part| match label {
-            "R" => {}
-            "A" => valids.push(part).unwrap(),
-            target => workflows.get(target).unwrap().simulate(part, workflows, valids),
-        };
-        for Rule { var, op, arg, target } in &self.conds {
-            let x = part[*var as usize];
-            let y = match op.simulate(x, *arg) {
-                None => continue,
-                Some(y) => y,
-            };
-            resolve(*target, update(part.clone(), *var, y));
-            part[*var as usize] = sub(x, y);
-        }
-        resolve(self.alt, part);
+// =============================================================================
+// workflow application
+
+type Parts = Vec<Part, 1024>;
+type Part = [i16; 4];
+
+fn apply_op(op: Op, lhs: i16, rhs: i16) -> bool {
+    match op {
+        Op::Lt => lhs < rhs,
+        Op::Gt => lhs > rhs,
     }
 }
 
-fn process(workflows: &Workflows, part: &Part) -> bool {
+fn apply_workflow<'a>(workflow: &'a Workflow, part: &Part) -> &'a str {
+    for rule in &workflow.conds {
+        if apply_op(rule.op, part[rule.var as usize], rule.arg) {
+            return rule.target;
+        }
+    }
+    workflow.alt
+}
+
+fn is_valid(workflows: &Workflows, part: &Part) -> bool {
     let mut label = "in";
     while label != "A" && label != "R" {
-        label = workflows.get(&label).unwrap().apply(&part);
+        label = apply_workflow(workflows.get(&label).unwrap(), part);
     }
     label == "A"
 }
 
-fn valid_combos(part: &AbstractPart) -> i64 {
+fn sum_ratings(workflows: &Workflows, parts: &Parts) -> i64 {
+    let sum = |part: &Part| -> i64 { part.iter().map(|x| *x as i64).sum() };
+    parts.iter().filter(|part| is_valid(&workflows, *part)).map(sum).sum()
+}
+
+// =============================================================================
+// workflow simulation
+
+type Range = (i16, i16);
+type AbstractPart = [Range; 4];
+
+fn update_part(mut part: AbstractPart, var: u8, with: Range) -> AbstractPart {
+    part[var as usize] = with;
+    part
+}
+
+fn remove_range(outer: Range, inner: Range) -> Range {
+    if outer.0 == inner.0 {
+        (inner.1 + 1, outer.1)
+    } else {
+        (outer.0, inner.0 - 1)
+    }
+}
+
+fn satisfy_op(op: Op, lhs: Range, rhs: i16) -> Option<Range> {
+    match op {
+        Op::Lt if lhs.0 >= rhs => None,
+        Op::Lt => Some((lhs.0, lhs.1.min(rhs - 1))),
+        Op::Gt if lhs.1 <= rhs => None,
+        Op::Gt => Some((lhs.0.max(rhs + 1), lhs.1)),
+    }
+}
+
+fn satisfy_workflow<'a, const N: usize>(
+    workflow: &'a Workflow,
+    mut part: AbstractPart,
+    workflows: &Workflows,
+    valids: &mut Vec<AbstractPart, N>,
+) {
+    let mut satisfy = |label, part| match label {
+        "R" => {}
+        "A" => valids.push(part).unwrap(),
+        target => satisfy_workflow(workflows.get(target).unwrap(), part, workflows, valids),
+    };
+    for Rule { var, op, arg, target } in &workflow.conds {
+        let x = part[*var as usize];
+        let y = match satisfy_op(*op, x, *arg) {
+            None => continue,
+            Some(y) => y,
+        };
+        satisfy(*target, update_part(part.clone(), *var, y));
+        part[*var as usize] = remove_range(x, y);
+    }
+    satisfy(workflow.alt, part);
+}
+
+fn count_valid(part: &AbstractPart) -> i64 {
     part.iter().map(|(a, b)| (b - a + 1) as i64).product()
 }
 
-fn all_valid(workflows: &Workflows) -> i64 {
+fn total_valid(workflows: &Workflows) -> i64 {
     let part = [(1, 4000); 4];
     let mut valids: Vec<AbstractPart, 1024> = Vec::new();
-    workflows.get("in").unwrap().simulate(part, workflows, &mut valids);
-    valids.iter().map(valid_combos).sum()
+    satisfy_workflow(workflows.get("in").unwrap(), part, workflows, &mut valids);
+    valids.iter().map(count_valid).sum()
 }
+
+// =============================================================================
+// parsing
 
 fn parse_workflow(line: &str) -> (&str, Workflow) {
     let (label, rest) = line.split_once('{').unwrap();
@@ -150,15 +165,17 @@ fn parse(input: &str) -> (Workflows, Parts) {
     (workflows, parts)
 }
 
+// =============================================================================
+// solutions
+
 pub fn part1(input: &str) -> i64 {
     let (workflows, parts) = parse(input);
-    let sum = |part: &Part| -> i64 { part.iter().map(|x| *x as i64).sum() };
-    parts.iter().filter(|part| process(&workflows, *part)).map(sum).sum()
+    sum_ratings(&workflows, &parts)
 }
 
 pub fn part2(input: &str) -> i64 {
     let workflows = parse(input).0;
-    all_valid(&workflows)
+    total_valid(&workflows)
 }
 
 #[cfg(test)]
