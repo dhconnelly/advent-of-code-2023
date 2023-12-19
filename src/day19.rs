@@ -133,6 +133,6 @@ hdj{m>838:A,pv}
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day19.txt");
-        assert_eq!(part1(input), 0);
+        assert_eq!(part1(input), 367602);
     }
 }
