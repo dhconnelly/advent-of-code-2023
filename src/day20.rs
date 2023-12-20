@@ -26,6 +26,23 @@ enum Machine<'a> {
     Conjunction { recent: FnvIndexMap<&'a str, Pulse, 16> },
 }
 
+impl Machine<'_> {
+    fn state(&self) -> usize {
+        match self {
+            Machine::FlipFlop { on } => *on as usize,
+            Machine::Conjunction { recent } => {
+                recent.values().enumerate().fold(0usize, |b, (i, p)| b | ((*p as usize) << i))
+            }
+        }
+    }
+}
+
+type State = Vec<usize, 64>;
+
+fn state(sys: &System) -> State {
+    sys.values().map(Machine::state).collect()
+}
+
 #[derive(Debug)]
 struct Message<'a> {
     from: &'a str,
@@ -33,13 +50,21 @@ struct Message<'a> {
     pulse: Pulse,
 }
 
+enum Outcome {
+    LowRx,
+    Pulses(usize, usize),
+}
+
 // run the system and return the number of pulses sent
-fn run<'a>(sys: &mut System<'a>, conns: &Connections<'a>) -> (usize, usize) {
+fn run<'a>(sys: &mut System<'a>, conns: &Connections<'a>) -> Outcome {
     use Pulse::*;
     let mut q: Deque<Message, 64> = Deque::new();
     let (mut low, mut high) = (0, 0);
     q.push_back(Message { from: "", to: "broadcaster", pulse: Low }).unwrap();
-    while let Some(msg @ Message { from, to, pulse: input }) = q.pop_front() {
+    while let Some(Message { from, to, pulse: input }) = q.pop_front() {
+        if to == "rx" && input == Low {
+            return Outcome::LowRx;
+        }
         match input {
             Low => low += 1,
             High => high += 1,
@@ -68,7 +93,7 @@ fn run<'a>(sys: &mut System<'a>, conns: &Connections<'a>) -> (usize, usize) {
             }
         }
     }
-    (low, high)
+    Outcome::Pulses(low, high)
 }
 
 fn parse(input: &str) -> (System, Connections) {
@@ -108,10 +133,23 @@ pub fn part1(input: &str) -> usize {
     let (mut sys, conns) = parse(input);
     let (mut low, mut high) = (0, 0);
     for _ in 0..1000 {
-        let (x, y) = run(&mut sys, &conns);
-        (low, high) = (low + x, high + y);
+        match run(&mut sys, &conns) {
+            Outcome::LowRx => unreachable!(),
+            Outcome::Pulses(x, y) => (low, high) = (low + x, high + y),
+        }
     }
     low * high
+}
+
+pub fn part2(input: &str) -> usize {
+    let (mut sys, conns) = parse(input);
+    for i in 1..1000 {
+        if let Outcome::LowRx = run(&mut sys, &conns) {
+            return i;
+        }
+        println!("{:?}", state(&sys));
+    }
+    unreachable!()
 }
 
 #[cfg(test)]
@@ -143,6 +181,7 @@ mod test {
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day20.txt");
-        assert_eq!(part1(input), 0);
+        assert_eq!(part1(input), 832957356);
+        assert_eq!(part2(input), 832957356);
     }
 }
