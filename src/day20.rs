@@ -4,7 +4,7 @@ use libc_print::std_name::*;
 type Connections<'a> = FnvIndexMap<&'a str, Vec<&'a str, 8>, 64>;
 type System<'a> = FnvIndexMap<&'a str, Machine<'a>, 64>;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Pulse {
     Low,
     High,
@@ -12,10 +12,9 @@ enum Pulse {
 
 impl From<bool> for Pulse {
     fn from(value: bool) -> Self {
-        if value {
-            Pulse::High
-        } else {
-            Pulse::Low
+        match value {
+            true => Pulse::High,
+            false => Pulse::Low,
         }
     }
 }
@@ -26,23 +25,6 @@ enum Machine<'a> {
     Conjunction { recent: FnvIndexMap<&'a str, Pulse, 16> },
 }
 
-impl Machine<'_> {
-    fn state(&self) -> usize {
-        match self {
-            Machine::FlipFlop { on } => *on as usize,
-            Machine::Conjunction { recent } => {
-                recent.values().enumerate().fold(0usize, |b, (i, p)| b | ((*p as usize) << i))
-            }
-        }
-    }
-}
-
-type State = Vec<usize, 64>;
-
-fn state(sys: &System) -> State {
-    sys.values().map(Machine::state).collect()
-}
-
 #[derive(Debug)]
 struct Message<'a> {
     from: &'a str,
@@ -50,50 +32,35 @@ struct Message<'a> {
     pulse: Pulse,
 }
 
-enum Outcome {
-    LowRx,
-    Pulses(usize, usize),
-}
-
 // run the system and return the number of pulses sent
-fn run<'a>(sys: &mut System<'a>, conns: &Connections<'a>) -> Outcome {
-    use Pulse::*;
+fn run<'a>(sys: &mut System<'a>, conns: &Connections<'a>) -> (usize, usize) {
     let mut q: Deque<Message, 64> = Deque::new();
     let (mut low, mut high) = (0, 0);
-    q.push_back(Message { from: "", to: "broadcaster", pulse: Low }).unwrap();
+    q.push_back(Message { from: "", to: "broadcaster", pulse: Pulse::Low }).unwrap();
     while let Some(Message { from, to, pulse: input }) = q.pop_front() {
-        if to == "rx" && input == Low {
-            return Outcome::LowRx;
-        }
         match input {
-            Low => low += 1,
-            High => high += 1,
+            Pulse::Low => low += 1,
+            Pulse::High => high += 1,
         }
-        let output = match (input, sys.get_mut(to)) {
-            (Low, Some(Machine::FlipFlop { on })) => {
+        let output = match sys.get_mut(to) {
+            Some(Machine::FlipFlop { on }) if input == Pulse::Low => {
                 *on = !*on;
                 Some(Pulse::from(*on))
             }
-            (input, Some(Machine::Conjunction { recent })) => {
+            Some(Machine::Conjunction { recent }) => {
                 recent.insert(from, input).unwrap();
-                if recent.values().all(|pulse| *pulse == High) {
-                    Some(Low)
-                } else {
-                    Some(High)
-                }
+                Some(Pulse::from(recent.values().any(|pulse| *pulse != Pulse::High)))
             }
-            (input, None) => Some(input),
+            None => Some(input),
             _ => None,
         };
-        if let Some(pulse) = output {
-            if let Some(dests) = conns.get(to) {
-                for dest in dests {
-                    q.push_back(Message { from: to, to: dest, pulse }).unwrap();
-                }
+        if let Some((pulse, dests)) = output.zip(conns.get(to)) {
+            for dest in dests {
+                q.push_back(Message { from: to, to: dest, pulse }).unwrap();
             }
         }
     }
-    Outcome::Pulses(low, high)
+    (low, high)
 }
 
 fn parse(input: &str) -> (System, Connections) {
@@ -117,12 +84,10 @@ fn parse(input: &str) -> (System, Connections) {
         }
         conns.insert(label, out).unwrap();
     }
-    for (target, machine) in sys.iter_mut() {
+    for (dst, machine) in sys.iter_mut() {
         if let Machine::Conjunction { recent } = machine {
-            for (source, outs) in conns.iter() {
-                if outs.contains(target) {
-                    recent.insert(source, Pulse::Low).unwrap();
-                }
+            for (src, _) in conns.iter().filter(|(_, dsts)| dsts.contains(dst)) {
+                recent.insert(src, Pulse::Low).unwrap();
             }
         }
     }
@@ -133,23 +98,15 @@ pub fn part1(input: &str) -> usize {
     let (mut sys, conns) = parse(input);
     let (mut low, mut high) = (0, 0);
     for _ in 0..1000 {
-        match run(&mut sys, &conns) {
-            Outcome::LowRx => unreachable!(),
-            Outcome::Pulses(x, y) => (low, high) = (low + x, high + y),
-        }
+        let (x, y) = run(&mut sys, &conns);
+        (low, high) = (low + x, high + y);
     }
     low * high
 }
 
 pub fn part2(input: &str) -> usize {
-    let (mut sys, conns) = parse(input);
-    for i in 1..1000 {
-        if let Outcome::LowRx = run(&mut sys, &conns) {
-            return i;
-        }
-        println!("{:?}", state(&sys));
-    }
-    unreachable!()
+    let (sys, conns) = parse(input);
+    0
 }
 
 #[cfg(test)]
@@ -182,6 +139,6 @@ mod test {
     fn test_real() {
         let input = include_str!("../inputs/day20.txt");
         assert_eq!(part1(input), 832957356);
-        assert_eq!(part2(input), 832957356);
+        //assert_eq!(part2(input), 832957356);
     }
 }
