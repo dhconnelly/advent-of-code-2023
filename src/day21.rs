@@ -1,21 +1,25 @@
 use heapless::{Deque, FnvIndexSet, Vec};
 use libc_print::std_name::*;
 
-type Pt = (i16, i16);
+type Pt = (i64, i64);
 type Grid = Vec<Vec<Plot, 256>, 256>;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 enum Plot {
     Garden,
     Rock,
+}
+
+fn get(grid: &Grid, (r, c): Pt) -> Plot {
+    grid[r.rem_euclid(grid.len() as i64) as usize][c.rem_euclid(grid[0].len() as i64) as usize]
 }
 
 fn nbrs((r, c): Pt, grid: &Grid) -> Vec<Pt, 4> {
     [(-1, 0), (1, 0), (0, -1), (0, 1)]
         .into_iter()
         .map(|(dr, dc)| (r + dr, c + dc))
-        .filter(|(r, _)| *r >= 0 && *r < grid.len() as i16)
-        .filter(|(_, c)| *c >= 0 && *c < grid[0].len() as i16)
+        .filter(|(r, _)| *r >= 0 && *r < grid.len() as i64)
+        .filter(|(_, c)| *c >= 0 && *c < grid[0].len() as i64)
         .collect()
 }
 
@@ -28,8 +32,8 @@ fn explore(grid: &Grid, start: Pt, max: u8) -> usize {
             break;
         }
         v.remove(&pt);
-        for nbr @ (r, c) in nbrs(pt, grid) {
-            if !v.contains(&nbr) && grid[r as usize][c as usize] == Plot::Garden {
+        for nbr in nbrs(pt, grid) {
+            if !v.contains(&nbr) && get(grid, nbr) == Plot::Garden {
                 q.push_back((nbr, dist + 1)).unwrap();
                 v.insert(nbr).unwrap();
             }
@@ -50,7 +54,7 @@ fn parse(input: &str) -> (Grid, Pt) {
                     b'.' => Plot::Garden,
                     b'#' => Plot::Rock,
                     b'S' => {
-                        start = (r as i16, c as i16);
+                        start = (r as i64, c as i64);
                         Plot::Garden
                     }
                     _ => unreachable!(),
@@ -96,7 +100,7 @@ mod test {
     #[test]
     fn test_real() {
         let input = include_str!("../inputs/day21.txt");
-        assert_eq!(part1(input), 0);
+        assert_eq!(part1(input), 3660);
         assert_eq!(part2(input), 0);
     }
 }
