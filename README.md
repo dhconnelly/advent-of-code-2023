@@ -85,6 +85,8 @@ day18part1              time:   [69.633 µs 69.689 µs 69.748 µs]
 day18part2              time:   [69.728 µs 69.770 µs 69.813 µs]
 day19part1              time:   [198.68 µs 199.32 µs 199.96 µs]
 day19part2              time:   [187.24 µs 189.82 µs 193.09 µs]
+day20part1              time:   [3.9941 ms 3.9958 ms 3.9975 ms]
+day20part2              time:   [66.707 ms 66.780 ms 66.885 ms]
 ```
 
 see `benches/aoc23bench.rs` for the benchmark definitions.

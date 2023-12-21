@@ -1,5 +1,4 @@
 use heapless::{Deque, FnvIndexMap, Vec};
-use libc_print::std_name::*;
 
 type Connections<'a> = FnvIndexMap<&'a str, Vec<&'a str, 8>, 64>;
 type System<'a> = FnvIndexMap<&'a str, Machine<'a>, 64>;
@@ -19,7 +18,7 @@ impl From<bool> for Pulse {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Machine<'a> {
     FlipFlop { on: bool },
     Conjunction { recent: FnvIndexMap<&'a str, Pulse, 16> },
@@ -32,16 +31,11 @@ struct Message<'a> {
     pulse: Pulse,
 }
 
-// run the system and return the number of pulses sent
-fn run<'a>(sys: &mut System<'a>, conns: &Connections<'a>) -> (usize, usize) {
+fn run<'a>(sys: &mut System<'a>, conns: &Connections<'a>, mut f: impl FnMut(Message)) {
     let mut q: Deque<Message, 64> = Deque::new();
-    let (mut low, mut high) = (0, 0);
     q.push_back(Message { from: "", to: "broadcaster", pulse: Pulse::Low }).unwrap();
-    while let Some(Message { from, to, pulse: input }) = q.pop_front() {
-        match input {
-            Pulse::Low => low += 1,
-            Pulse::High => high += 1,
-        }
+    while let Some(msg @ Message { from, to, pulse: input }) = q.pop_front() {
+        f(msg);
         let output = match sys.get_mut(to) {
             Some(Machine::FlipFlop { on }) if input == Pulse::Low => {
                 *on = !*on;
@@ -60,7 +54,35 @@ fn run<'a>(sys: &mut System<'a>, conns: &Connections<'a>) -> (usize, usize) {
             }
         }
     }
+}
+
+fn count_pulses<'a>(sys: &mut System<'a>, conns: &Connections<'a>) -> (usize, usize) {
+    let (mut low, mut high) = (0, 0);
+    run(sys, conns, |Message { pulse, .. }| match pulse {
+        Pulse::Low => low += 1,
+        Pulse::High => high += 1,
+    });
     (low, high)
+}
+
+fn run_until<'a>(
+    sys: &mut System<'a>,
+    conns: &Connections<'a>,
+    dest: &'a str,
+    want: Pulse,
+) -> usize {
+    let mut count = None;
+    for presses in 1.. {
+        run(sys, conns, |Message { to, pulse, .. }| {
+            if to == dest && pulse == want {
+                count = Some(presses);
+            }
+        });
+        if count.is_some() {
+            break;
+        }
+    }
+    count.unwrap()
 }
 
 fn parse(input: &str) -> (System, Connections) {
@@ -98,15 +120,29 @@ pub fn part1(input: &str) -> usize {
     let (mut sys, conns) = parse(input);
     let (mut low, mut high) = (0, 0);
     for _ in 0..1000 {
-        let (x, y) = run(&mut sys, &conns);
+        let (x, y) = count_pulses(&mut sys, &conns);
         (low, high) = (low + x, high + y);
     }
     low * high
 }
 
+fn find_source<'a, 'b>(
+    conns: &'b Connections<'a>,
+    of: &'a str,
+) -> impl Iterator<Item = &'a str> + 'b {
+    conns.iter().filter(move |(_, dsts)| dsts.contains(&of)).map(|(src, _)| *src)
+}
+
 pub fn part2(input: &str) -> usize {
     let (sys, conns) = parse(input);
-    0
+    // this is basically day 8
+    // based on manual inspection of the input file: https://bit.ly/3RSUAbq
+    let sink = find_source(&conns, "rx").next().unwrap();
+    let sources: Vec<&str, 4> = find_source(&conns, sink).collect();
+    assert!(matches!(sys.get(sink), Some(Machine::Conjunction { .. })));
+    assert!(sources.iter().all(|src| matches!(sys.get(src), Some(Machine::Conjunction { .. }))));
+    let cycles = sources.iter().map(|src| run_until(&mut sys.clone(), &conns, src, Pulse::Low));
+    cycles.product()
 }
 
 #[cfg(test)]
@@ -139,6 +175,6 @@ mod test {
     fn test_real() {
         let input = include_str!("../inputs/day20.txt");
         assert_eq!(part1(input), 832957356);
-        //assert_eq!(part2(input), 832957356);
+        assert_eq!(part2(input), 240162699605221);
     }
 }
