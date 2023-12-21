@@ -2,6 +2,8 @@
 
 in rust with `#![no_std]`. no allocations!
 
+(except for day21part2 💀💀💀)
+
 the binary crate (`src/main.rs`) uses std to get command-line flags and read
 the input. the library crate sets `#![no_std]` in `src/lib.rs` (and pulls in
 the rest of the code as modules).
@@ -22,6 +24,10 @@ for mac os on apple silicon:
 to run the solution for day N on the input `inputs/dayN.txt`:
 
     cargo run dayN inputs/dayN.txt
+
+to run day 21:
+
+    cargo run --release day21 inputs/day21.txt
 
 to benchmark all solutions:
 
