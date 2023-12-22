@@ -31,50 +31,40 @@ fn parse(input: &str) -> Bricks {
     bricks
 }
 
-// won't fit on the stack
-static mut INTERSECTIONS: Vec<Vec<bool, 2048>, 2048> = Vec::new();
+type Cache = Vec<Vec<u16, 256>, 2048>;
 
-fn compute_intersections(bricks: &Bricks) {
+fn compute_intersections(bricks: &Bricks, cache: &mut Cache) {
     fn has_overlap(l: &Brick, r: &Brick) -> bool {
         let ix = (l.0.x.max(r.0.x), l.1.x.min(r.1.x));
         let iy = (l.0.y.max(r.0.y), l.1.y.min(r.1.y));
         ix.0 <= ix.1 && iy.0 <= iy.1
     }
-    unsafe {
-        INTERSECTIONS.clear();
-        INTERSECTIONS.resize_default(bricks.len()).unwrap();
-        for i in 0..bricks.len() - 1 {
-            INTERSECTIONS[i].resize_default(bricks.len()).unwrap();
-            for j in i + 1..bricks.len() {
-                INTERSECTIONS[j].resize_default(bricks.len()).unwrap();
-                let overlap = has_overlap(&bricks[i], &bricks[j]);
-                INTERSECTIONS[i][j] = overlap;
-                INTERSECTIONS[j][i] = overlap;
+    cache.clear();
+    cache.resize_default(bricks.len()).unwrap();
+    for i in 0..bricks.len() - 1 {
+        for j in i + 1..bricks.len() {
+            if has_overlap(&bricks[i], &bricks[j]) {
+                cache[i].push(j as u16).unwrap();
+                cache[j].push(i as u16).unwrap();
             }
         }
     }
 }
 
-fn has_overlap(i: usize, j: usize) -> bool {
-    unsafe { INTERSECTIONS[i][j] }
-}
-
-fn drop_dist(bricks: &Bricks, i: usize) -> i16 {
+fn drop_dist(bricks: &Bricks, i: usize, cache: &Cache) -> i16 {
     // find the closest brick in the z-dimension that overlaps with this one
     // in the x and y dimensions and find the distance. if none exists, we
     // can fall all the way to the bottom.
-    // TODO: cache (bricks[..i], i)
-    bricks[..i]
+    cache[i]
         .iter()
-        .enumerate()
-        .filter(|(j, other)| other.1.z < bricks[i].0.z && has_overlap(i, *j))
-        .map(|(_, other)| bricks[i].0.z - other.1.z - 1)
+        .filter(|j| bricks[**j as usize].1.z < bricks[i].0.z)
+        .map(|j| bricks[i].0.z - bricks[*j as usize].1.z - 1)
         .min()
         .unwrap_or(bricks[i].0.z - 1)
 }
 
-fn drop(bricks: &mut Bricks, i: usize) -> bool {
-    let dz = drop_dist(bricks, i);
+fn drop(bricks: &mut Bricks, i: usize, cache: &Cache) -> bool {
+    let dz = drop_dist(bricks, i, cache);
     if dz > 0 {
         bricks[i].0.z -= dz;
         bricks[i].1.z -= dz;
@@ -82,52 +72,54 @@ fn drop(bricks: &mut Bricks, i: usize) -> bool {
     dz > 0
 }
 
-fn drop_all(bricks: &mut Bricks, from: usize, to: usize) -> usize {
-    (from..to).map(|i| drop(bricks, i) as usize).sum()
+fn drop_all(bricks: &mut Bricks, from: usize, to: usize, cache: &Cache) -> usize {
+    (from..to).map(|i| drop(bricks, i, cache) as usize).sum()
 }
 
-fn supporting(bricks: &mut Bricks, below: usize, above: usize) -> bool {
-    if bricks[above].0.z <= bricks[below].1.z || !has_overlap(below, above) {
+fn supporting(bricks: &mut Bricks, below: usize, above: usize, cache: &Cache) -> bool {
+    if bricks[above].0.z <= bricks[below].1.z || !cache[above].contains(&(below as u16)) {
         return false;
     }
     let saved = bricks[below];
     bricks[below] = REMOVED;
-    let d = drop_dist(bricks, above);
+    let d = drop_dist(bricks, above, cache);
     bricks[below] = saved;
     d > 0
 }
 
-fn can_remove(bricks: &mut Bricks, i: usize) -> bool {
+fn can_remove(bricks: &mut Bricks, i: usize, cache: &Cache) -> bool {
     // look for a brick that would fall on this one
-    (i + 1..bricks.len()).all(|j| !supporting(bricks, i, j))
+    (i + 1..bricks.len()).all(|j| !supporting(bricks, i, j, cache))
 }
 
-fn remove_count(bricks: &mut Bricks, i: usize, memo: &mut [Option<usize>]) -> usize {
+fn remove_count(bricks: &mut Bricks, i: usize, cache: &Cache, memo: &mut [Option<usize>]) -> usize {
     // remove the brick and see how many fall. recursive: if a brick falls, then
     // each one it supports falls, and each one that one supports falls, etc.
     *memo[i].get_or_insert_with(|| {
         let mut next: Bricks = bricks.clone();
         next[i] = REMOVED;
-        drop_all(&mut next, i + 1, bricks.len())
+        drop_all(&mut next, i + 1, bricks.len(), cache)
     })
 }
 
 pub fn part1(input: &str) -> usize {
     let mut bricks = parse(input);
-    compute_intersections(&bricks);
+    let mut cache = Cache::new();
+    compute_intersections(&bricks, &mut cache);
     let n = bricks.len();
-    drop_all(&mut bricks, 0, n);
-    (0..bricks.len()).filter(|i| can_remove(&mut bricks, *i)).count()
+    drop_all(&mut bricks, 0, n, &cache);
+    (0..bricks.len()).filter(|i| can_remove(&mut bricks, *i, &cache)).count()
 }
 
 pub fn part2(input: &str) -> usize {
     let mut bricks = parse(input);
     let n = bricks.len();
-    drop_all(&mut bricks, 0, n);
-    compute_intersections(&bricks);
+    let mut cache = Cache::new();
+    compute_intersections(&bricks, &mut cache);
+    drop_all(&mut bricks, 0, n, &cache);
     let mut memo: Vec<Option<usize>, 2048> = Vec::new();
     memo.resize(bricks.len(), None).unwrap();
-    (0..bricks.len()).map(|i| remove_count(&mut bricks, i, &mut memo)).sum()
+    (0..bricks.len()).map(|i| remove_count(&mut bricks, i, &cache, &mut memo)).sum()
 }
 
 #[cfg(test)]
