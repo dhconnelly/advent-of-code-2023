@@ -79,6 +79,7 @@ pub fn part2(input: &str) -> i64 {
         explore(&grid, start, 65 + 131),
         explore(&grid, start, 65 + 131 * 2),
     );
+    println!("{:?}", (y1, y2, y3));
 
     // https://www.geeksforgeeks.org/lagrange-interpolation-formula/
     let a = y1 / 2 - y2 + y3 / 2;
@@ -95,4 +96,33 @@ fn main() {
     let input = include_str!("../../inputs/day21.txt");
     println!("{}", part1(input));
     println!("{}", part2(input));
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_example() {
+        let input = "...........
+.....###.#.
+.###.##..#.
+..#.#...#..
+....#.#....
+.##..S####.
+.##..#...#.
+.......##..
+.##.#.####.
+.##..##.##.
+...........
+";
+        let (grid, start) = parse(input);
+        assert_eq!(explore(&grid, start, 6), 16);
+        assert_eq!(explore(&grid, start, 10), 50);
+        assert_eq!(explore(&grid, start, 50), 1594);
+        assert_eq!(explore(&grid, start, 100), 6536);
+
+        let input = include_str!("../../inputs/day21.txt");
+        assert_eq!(part1(input), 3660);
+    }
 }
