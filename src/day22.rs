@@ -29,11 +29,11 @@ fn parse(input: &str) -> Bricks {
 }
 
 fn compute_intersections(bricks: &Bricks, overlaps: &mut Overlaps) {
-    fn has_overlap(l: &Brick, r: &Brick) -> bool {
+    let has_overlap = |l: &Brick, r: &Brick| {
         let ix = (l.0 .0.max(r.0 .0), l.1 .0.min(r.1 .0));
         let iy = (l.0 .1.max(r.0 .1), l.1 .1.min(r.1 .1));
         ix.0 <= ix.1 && iy.0 <= iy.1
-    }
+    };
     overlaps.clear();
     overlaps.resize_default(bricks.len()).unwrap();
     for i in 0..bricks.len() - 1 {
@@ -53,14 +53,9 @@ fn drop_dist(bricks: &Bricks, i: usize, overlaps: &Overlaps) -> i16 {
     let above_z = bricks[i].0 .2;
     overlaps[i]
         .iter()
-        .filter_map(|j| {
-            let below_z = bricks[*j as usize].1 .2;
-            if below_z < above_z {
-                Some(above_z - below_z - 1)
-            } else {
-                None
-            }
-        })
+        .map(|j| bricks[*j as usize].1 .2)
+        .filter(|below_z| *below_z < above_z)
+        .map(|below_z| above_z - below_z - 1)
         .min()
         .unwrap_or(above_z - 1)
 }
@@ -79,15 +74,15 @@ fn drop_all(bricks: &mut Bricks, from: usize, to: usize, overlaps: &Overlaps) ->
 }
 
 fn can_remove(bricks: &mut Bricks, below: usize, overlaps: &Overlaps) -> bool {
+    let brick = bricks[below];
     // look for a brick that would fall on this one
     for above in below + 1..bricks.len() {
-        if bricks[above].0 .2 <= bricks[below].1 .2 || !overlaps[above].contains(&(below as u16)) {
+        if bricks[above].0 .2 <= brick.1 .2 || !overlaps[above].contains(&(below as u16)) {
             continue;
         }
-        let saved = bricks[below];
         bricks[below] = REMOVED;
         let d = drop_dist(bricks, above, overlaps);
-        bricks[below] = saved;
+        bricks[below] = brick;
         if d > 0 {
             return false;
         }
