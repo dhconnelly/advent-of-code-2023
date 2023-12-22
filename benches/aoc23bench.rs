@@ -68,6 +68,7 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("day20part1", |b| b.iter(|| day20::part1(black_box(INPUTS[19]))));
     c.bench_function("day20part2", |b| b.iter(|| day20::part2(black_box(INPUTS[19]))));
     c.bench_function("day22part1", |b| b.iter(|| day22::part1(black_box(INPUTS[21]))));
+    c.bench_function("day22part2", |b| b.iter(|| day22::part2(black_box(INPUTS[21]))));
 }
 
 criterion_group!(benches, benchmark);

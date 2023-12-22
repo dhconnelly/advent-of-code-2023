@@ -1,6 +1,4 @@
-use core::ops::Deref;
-use heapless::{FnvIndexSet, Vec};
-use libc_print::std_name::*;
+use heapless::Vec;
 
 type Bricks = Vec<Brick, 2048>;
 type Brick = (Pt, Pt);
@@ -14,12 +12,6 @@ struct Pt {
 
 const ZERO: Pt = Pt { x: 0, y: 0, z: 0 };
 const REMOVED: Brick = (ZERO, ZERO);
-
-fn intersects_xy(l: &Brick, r: &Brick) -> bool {
-    let ix = (l.0.x.max(r.0.x), l.1.x.min(r.1.x));
-    let iy = (l.0.y.max(r.0.y), l.1.y.min(r.1.y));
-    ix.0 <= ix.1 && iy.0 <= iy.1
-}
 
 // parse the bricks and return them in ascending sorted order by z-coord
 fn parse(input: &str) -> Bricks {
@@ -39,22 +31,28 @@ fn parse(input: &str) -> Bricks {
     bricks
 }
 
+// won't fit on the stack
 static mut INTERSECTIONS: Vec<Vec<bool, 2048>, 2048> = Vec::new();
 
 fn compute_intersections(bricks: &Bricks) {
+    fn has_overlap(l: &Brick, r: &Brick) -> bool {
+        let ix = (l.0.x.max(r.0.x), l.1.x.min(r.1.x));
+        let iy = (l.0.y.max(r.0.y), l.1.y.min(r.1.y));
+        ix.0 <= ix.1 && iy.0 <= iy.1
+    }
     unsafe {
         INTERSECTIONS.clear();
         INTERSECTIONS.resize_default(bricks.len()).unwrap();
         for (i, brick) in bricks.iter().enumerate() {
             INTERSECTIONS[i].resize_default(bricks.len()).unwrap();
             for (j, other) in bricks.iter().enumerate() {
-                INTERSECTIONS[i][j] = intersects_xy(brick, other);
+                INTERSECTIONS[i][j] = has_overlap(brick, other);
             }
         }
     }
 }
 
-fn intersects_cached(i: usize, j: usize) -> bool {
+fn has_overlap(i: usize, j: usize) -> bool {
     unsafe { INTERSECTIONS[i][j] }
 }
 
@@ -67,7 +65,7 @@ fn drop_dist(bricks: &Bricks, i: usize) -> i16 {
         .iter()
         .enumerate()
         .rev()
-        .filter(|(j, other)| other.1.z < brick.0.z && intersects_cached(i, *j))
+        .filter(|(j, other)| other.1.z < brick.0.z && has_overlap(i, *j))
         .map(|(_, other)| brick.0.z - other.1.z - 1)
         .min()
         .unwrap_or(brick.0.z - 1)
@@ -86,31 +84,29 @@ fn drop_all(bricks: &mut Bricks) -> usize {
     (0..bricks.len()).map(|i| drop(bricks, i) as usize).sum()
 }
 
-fn supported(bricks: &mut Bricks, i: usize) -> FnvIndexSet<usize, 2048> {
+fn count_supported(bricks: &mut Bricks, i: usize) -> usize {
     let brick = bricks[i];
     // look for a brick that would fall on this one
-    let mut supported = FnvIndexSet::new();
-    for j in i + 1..bricks.len() {
-        let other = bricks[j];
-        if other.0.z <= brick.1.z || !intersects_cached(i, j) {
-            continue;
-        }
-        bricks[i] = REMOVED;
-        // if it doesn't fall, we can remove
-        let d = drop_dist(bricks, j);
-        bricks[i] = brick;
-        if d > 0 {
-            supported.insert(j).unwrap();
-        }
-    }
-    supported
+    (i + 1..bricks.len())
+        .filter(|j| {
+            let other = bricks[*j];
+            if other.0.z <= brick.1.z || !has_overlap(i, *j) {
+                return false;
+            }
+            bricks[i] = REMOVED;
+            // if it doesn't fall, we can remove
+            let d = drop_dist(bricks, *j);
+            bricks[i] = brick;
+            d > 0
+        })
+        .count()
 }
 
 pub fn part1(input: &str) -> usize {
     let mut bricks = parse(input);
     compute_intersections(&bricks);
     drop_all(&mut bricks);
-    (0..bricks.len()).filter(|i| supported(&mut bricks, *i).len() == 0).count()
+    (0..bricks.len()).filter(|i| count_supported(&mut bricks, *i) == 0).count()
 }
 
 fn count_supporting(bricks: &mut Bricks, i: usize, memo: &mut [Option<usize>]) -> usize {
@@ -121,7 +117,6 @@ fn count_supporting(bricks: &mut Bricks, i: usize, memo: &mut [Option<usize>]) -
     next[i] = REMOVED;
     let count = drop_all(&mut next);
     memo[i] = Some(count);
-    println!("would fall if {} were removed: {}", i, count);
     count
 }
 
@@ -153,6 +148,6 @@ mod test {
 
         let input = include_str!("../inputs/day22.txt");
         assert_eq!(part1(input), 403);
-        assert_eq!(part2(input), 0);
+        assert_eq!(part2(input), 70189);
     }
 }
