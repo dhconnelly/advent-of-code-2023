@@ -38,6 +38,25 @@ fn parse(input: &str) -> Bricks {
     bricks
 }
 
+static mut INTERSECTIONS: Vec<Vec<bool, 2048>, 2048> = Vec::new();
+
+fn compute_intersections(bricks: &Bricks) {
+    unsafe {
+        INTERSECTIONS.clear();
+        INTERSECTIONS.resize_default(bricks.len()).unwrap();
+        for (i, brick) in bricks.iter().enumerate() {
+            INTERSECTIONS[i].resize_default(bricks.len()).unwrap();
+            for (j, other) in bricks.iter().enumerate() {
+                INTERSECTIONS[i][j] = intersects_xy(brick, other);
+            }
+        }
+    }
+}
+
+fn intersects_cached(i: usize, j: usize) -> bool {
+    unsafe { INTERSECTIONS[i][j] }
+}
+
 fn drop_dist(bricks: &Bricks, i: usize) -> i16 {
     // find the closest brick in the z-dimension that overlaps with this one
     // in the x and y dimemnsions and find the distance. if none exists, we
@@ -45,9 +64,10 @@ fn drop_dist(bricks: &Bricks, i: usize) -> i16 {
     let brick = bricks[i];
     bricks[..i]
         .iter()
+        .enumerate()
         .rev()
-        .filter(|other| other.1.z < brick.0.z && intersects_xy(&brick, other))
-        .map(|other| brick.0.z - other.1.z - 1)
+        .filter(|(j, other)| other.1.z < brick.0.z && intersects_cached(i, *j))
+        .map(|(_, other)| brick.0.z - other.1.z - 1)
         .min()
         .unwrap_or(brick.0.z - 1)
 }
@@ -72,7 +92,7 @@ fn fall_count(bricks: &mut Bricks, i: usize) -> usize {
     let mut fall_count = 0;
     for j in i + 1..bricks.len() {
         let other = bricks[j];
-        if other.0.z <= brick.1.z || !intersects_xy(&other, &brick) {
+        if other.0.z <= brick.1.z || !intersects_cached(i, j) {
             continue;
         }
         bricks[i] = (ZERO, ZERO);
@@ -88,6 +108,7 @@ fn fall_count(bricks: &mut Bricks, i: usize) -> usize {
 
 pub fn part1(input: &str) -> usize {
     let mut bricks = parse(input);
+    compute_intersections(&bricks);
     drop_all(&mut bricks);
     (0..bricks.len()).filter(|i| fall_count(&mut bricks, *i) == 0).count()
 }
@@ -112,10 +133,7 @@ mod test {
 ";
         assert_eq!(part1(input), 5);
         assert_eq!(part2(input), 0);
-    }
 
-    #[test]
-    fn test_real() {
         let input = include_str!("../inputs/day22.txt");
         assert_eq!(part1(input), 403);
         assert_eq!(part2(input), 0);
