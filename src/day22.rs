@@ -80,32 +80,33 @@ fn drop(bricks: &mut Bricks, i: usize) -> bool {
     dz > 0
 }
 
-fn drop_all(bricks: &mut Bricks) -> usize {
-    (0..bricks.len()).map(|i| drop(bricks, i) as usize).sum()
+fn drop_all(bricks: &mut Bricks, from: usize, to: usize) -> usize {
+    (from..to).map(|i| drop(bricks, i) as usize).sum()
+}
+
+fn supported(bricks: &mut Bricks, by: usize, j: usize) -> bool {
+    let brick = bricks[by];
+    let other = bricks[j];
+    if other.0.z <= brick.1.z || !has_overlap(by, j) {
+        return false;
+    }
+    bricks[by] = REMOVED;
+    // if it doesn't fall, we can remove
+    let d = drop_dist(bricks, j);
+    bricks[by] = brick;
+    d > 0
 }
 
 fn count_supported(bricks: &mut Bricks, i: usize) -> usize {
-    let brick = bricks[i];
     // look for a brick that would fall on this one
-    (i + 1..bricks.len())
-        .filter(|j| {
-            let other = bricks[*j];
-            if other.0.z <= brick.1.z || !has_overlap(i, *j) {
-                return false;
-            }
-            bricks[i] = REMOVED;
-            // if it doesn't fall, we can remove
-            let d = drop_dist(bricks, *j);
-            bricks[i] = brick;
-            d > 0
-        })
-        .count()
+    (i + 1..bricks.len()).filter(|j| supported(bricks, i, *j)).count()
 }
 
 pub fn part1(input: &str) -> usize {
     let mut bricks = parse(input);
     compute_intersections(&bricks);
-    drop_all(&mut bricks);
+    let n = bricks.len();
+    drop_all(&mut bricks, 0, n);
     (0..bricks.len()).filter(|i| count_supported(&mut bricks, *i) == 0).count()
 }
 
@@ -115,14 +116,15 @@ fn count_supporting(bricks: &mut Bricks, i: usize, memo: &mut [Option<usize>]) -
     }
     let mut next = bricks.clone();
     next[i] = REMOVED;
-    let count = drop_all(&mut next);
+    let count = drop_all(&mut next, i + 1, bricks.len());
     memo[i] = Some(count);
     count
 }
 
 pub fn part2(input: &str) -> usize {
     let mut bricks = parse(input);
-    drop_all(&mut bricks);
+    let n = bricks.len();
+    drop_all(&mut bricks, 0, n);
     compute_intersections(&bricks);
     let mut memo: Vec<Option<usize>, 2048> = Vec::new();
     memo.resize(bricks.len(), None).unwrap();
