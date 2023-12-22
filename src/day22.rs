@@ -90,14 +90,10 @@ fn can_remove(bricks: &mut Bricks, below: usize, overlaps: &Overlaps) -> bool {
     true
 }
 
-fn remove(bricks: &mut Bricks, i: usize, overlaps: &Overlaps, memo: &mut [Option<usize>]) -> usize {
-    // remove the brick and see how many fall. recursive: if a brick falls, then
-    // each one it supports falls, and each one that one supports falls, etc.
-    *memo[i].get_or_insert_with(|| {
-        let mut next: Bricks = bricks.clone();
-        next[i] = REMOVED;
-        drop_all(&mut next, i + 1, bricks.len(), overlaps)
-    })
+fn remove(bricks: &mut Bricks, i: usize, overlaps: &Overlaps) -> usize {
+    let mut next: Bricks = bricks.clone();
+    next[i] = REMOVED;
+    drop_all(&mut next, i + 1, bricks.len(), overlaps)
 }
 
 pub fn part1(input: &str) -> usize {
@@ -119,9 +115,7 @@ pub fn part2(input: &str) -> usize {
     let n = bricks.len();
     drop_all(&mut bricks, 0, n, &overlaps);
 
-    let mut memo: Vec<Option<usize>, 2048> = Vec::new();
-    memo.resize(bricks.len(), None).unwrap();
-    (0..bricks.len()).map(|i| remove(&mut bricks, i, &overlaps, &mut memo)).sum()
+    (0..bricks.len()).map(|i| remove(&mut bricks, i, &overlaps)).sum()
 }
 
 #[cfg(test)]
