@@ -4,6 +4,9 @@ type Bricks = Vec<Brick, 2048>;
 type Brick = (Pt, Pt);
 type Pt = (i16, i16, i16);
 
+// adjacency list
+type Overlaps = Vec<Vec<u16, 256>, 2048>;
+
 const ZERO: Pt = (0, 0, 0);
 const REMOVED: Brick = (ZERO, ZERO);
 
@@ -24,8 +27,6 @@ fn parse(input: &str) -> Bricks {
     bricks.sort_by_key(|brick| brick.0 .2);
     bricks
 }
-
-type Overlaps = Vec<Vec<u16, 256>, 2048>;
 
 fn compute_intersections(bricks: &Bricks, overlaps: &mut Overlaps) {
     fn has_overlap(l: &Brick, r: &Brick) -> bool {
@@ -49,12 +50,19 @@ fn drop_dist(bricks: &Bricks, i: usize, overlaps: &Overlaps) -> i16 {
     // find the closest brick in the z-dimension that overlaps with this one
     // in the x and y dimensions and find the distance. if none exists, we
     // can fall all the way to the bottom.
+    let above_z = bricks[i].0 .2;
     overlaps[i]
         .iter()
-        .filter(|j| bricks[**j as usize].1 .2 < bricks[i].0 .2)
-        .map(|j| bricks[i].0 .2 - bricks[*j as usize].1 .2 - 1)
+        .filter_map(|j| {
+            let below_z = bricks[*j as usize].1 .2;
+            if below_z < above_z {
+                Some(above_z - below_z - 1)
+            } else {
+                None
+            }
+        })
         .min()
-        .unwrap_or(bricks[i].0 .2 - 1)
+        .unwrap_or(above_z - 1)
 }
 
 fn drop(bricks: &mut Bricks, i: usize, overlaps: &Overlaps) -> bool {
