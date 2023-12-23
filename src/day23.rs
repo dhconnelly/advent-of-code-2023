@@ -1,9 +1,9 @@
-use heapless::{FnvIndexMap, FnvIndexSet, Vec};
+use heapless::{Deque, FnvIndexMap, FnvIndexSet, Vec};
 use libc_print::std_name::*;
 
 type Pt = (i16, i16);
 type Tile = u8;
-type WeightedGraph = Vec<Vec<(u16, u8), 4>, 4096>;
+type WeightedGraph = Vec<Vec<(u16, i16), 4>, 4096>;
 type Set<T> = FnvIndexSet<T, 4096>;
 type Map<K, V> = FnvIndexMap<K, V, 4096>;
 
@@ -74,35 +74,30 @@ fn nbrs(grid: &Grid, pt: Pt) -> Vec<Pt, 4> {
     }
 }
 
-fn is_intersection(grid: &Grid, pt @ (r, c): Pt, dir @ (dr, dc): Pt) -> bool {
-    orthog(grid, pt, dir).into_iter().filter(|nbr| can_pass(grid.get(*nbr))).next().is_some()
+fn is_intersection(grid: &Grid, pt: Pt) -> bool {
+    nbrs(grid, pt).len() != 2
 }
 
-fn advance(grid: &Grid, start: Pt, dir: Pt) -> Option<Pt> {
-    let next = go(grid, start, dir)?;
-    if can_pass(grid.get(next)) {
-        Some(next)
-    } else {
-        None
-    }
-}
-
-fn find_next(grid: &Grid, start: Pt, dir: Pt) -> Option<(Pt, u8)> {
-    let (mut cur, mut dist) = (advance(grid, start, dir)?, 1);
-    if is_intersection(grid, cur, dir) {
-        return Some((cur, dist));
-    }
-    while let Some(next) = advance(grid, cur, dir) {
-        if is_intersection(grid, next, dir) {
-            return Some((next, dist + 1));
+fn find_neighbors(grid: &Grid, start: Pt) -> Vec<(Pt, i16), 4> {
+    let mut edges: Vec<(Pt, i16), 4> = Vec::new();
+    let mut v: FnvIndexSet<Pt, 1024> = FnvIndexSet::new();
+    v.insert(start).unwrap();
+    let mut q: Deque<(Pt, i16), 1024> = Deque::new();
+    q.push_back((start, 0)).unwrap();
+    while let Some((cur, dist)) = q.pop_back() {
+        for nbr in nbrs(grid, cur) {
+            if v.contains(&nbr) {
+                continue;
+            }
+            if is_intersection(grid, nbr) {
+                edges.push((nbr, dist + 1)).unwrap();
+                continue;
+            }
+            v.insert(nbr).unwrap();
+            q.push_back((nbr, dist + 1)).unwrap();
         }
-        (cur, dist) = (next, dist + 1);
     }
-    Some((cur, dist))
-}
-
-fn find_neighbors<'a>(grid: &'a Grid, start: Pt) -> impl Iterator<Item = (Pt, u8)> + 'a {
-    DIRS.iter().flat_map(move |dir| find_next(grid, start, *dir))
+    edges
 }
 
 // won't fit on the stack :(
@@ -178,7 +173,6 @@ fn graph_longest_path(
 fn longest_path(grid: &Grid) -> usize {
     let graph = unsafe { &mut GRAPH };
     let (start, end) = build_graph(&grid, graph, unsafe { &mut VPT });
-    println!("{:?}", graph);
     graph_longest_path(graph, start, end, unsafe { &mut VID }).unwrap()
 }
 
@@ -236,6 +230,6 @@ mod test {
         assert_eq!(part2(TEST_INPUT), 154);
 
         //assert_eq!(part1(REAL_INPUT), 2042);
-        //assert_eq!(part2(REAL_INPUT), 0);
+        assert_eq!(part2(REAL_INPUT), 0);
     }
 }
