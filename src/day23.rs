@@ -1,4 +1,4 @@
-use heapless::{Deque, FnvIndexMap, FnvIndexSet, Vec};
+use heapless::Vec;
 use libc_print::std_name::*;
 
 type Pt = (i16, i16);
@@ -43,16 +43,17 @@ fn nbrs(grid: &Grid, pt @ (r, c): Pt) -> Vec<Pt, 4> {
 }
 
 fn longest_path(grid: &Grid) -> usize {
-    let mut frontier: Deque<(Pt, Pt, usize), 1024> = Deque::new();
+    let mut stack: Vec<(Pt, Pt, usize), 1024> = Vec::new();
     let end = end(grid);
-    frontier.push_back((start(grid), (-1, -1), 0)).unwrap();
+    stack.push((start(grid), (-1, -1), 0)).unwrap();
     let mut max_dist = 0;
-    while let Some((cur, prev, dist)) = frontier.pop_back() {
+    while let Some((cur, prev, dist)) = stack.pop() {
         if cur == end {
             max_dist = max_dist.max(dist);
+            continue;
         }
         for nbr in nbrs(grid, cur).into_iter().filter(|nbr| *nbr != prev) {
-            frontier.push_back((nbr, cur, dist + 1)).unwrap();
+            stack.push((nbr, cur, dist + 1)).unwrap();
         }
     }
     max_dist
