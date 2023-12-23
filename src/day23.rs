@@ -4,6 +4,7 @@ type Tile = u8;
 type Pt = (i16, i16);
 type Set = FnvIndexSet<Pt, 256>;
 type WeightedGraph = FnvIndexMap<Pt, Vec<(Pt, i16), 4>, 256>;
+type Neighbors = Vec<Pt, 4>;
 
 #[derive(Debug)]
 struct Grid<'a> {
@@ -16,6 +17,10 @@ impl Grid<'_> {
     fn get(&self, (r, c): Pt) -> Tile {
         self.tiles[r as usize * (self.width + 1) + c as usize]
     }
+
+    fn in_range(&self, (r, c): Pt) -> bool {
+        r >= 0 && (r as usize) < self.height && c >= 0 && (c as usize) < self.width
+    }
 }
 
 impl<'a> From<&'a str> for Grid<'a> {
@@ -26,20 +31,10 @@ impl<'a> From<&'a str> for Grid<'a> {
     }
 }
 
-fn passable_adjacent(grid: &Grid, (r, c): Pt) -> Vec<Pt, 4> {
-    [(-1, 0), (1, 0), (0, -1), (0, 1)]
-        .iter()
-        .map(|(dr, dc)| (r + dr, c + dc))
-        .filter(|(r, _)| *r >= 0 && (*r as usize) < grid.height)
-        .filter(|(_, c)| *c >= 0 && (*c as usize) < grid.width)
-        .filter(|pt| matches!(grid.get(*pt), b'.' | b'^' | b'v' | b'<' | b'>'))
-        .collect()
-}
-
-fn find_intersections(
+fn find_neighbors<F: Fn(&Grid, Pt) -> Neighbors>(
     grid: &Grid,
     start: Pt,
-    nbrs: impl Fn(&Grid, Pt) -> Vec<Pt, 4>,
+    nbrs: &F,
 ) -> Vec<(Pt, i16), 4> {
     let mut edges: Vec<(Pt, i16), 4> = Vec::new();
     let mut v: FnvIndexSet<Pt, 1024> = FnvIndexSet::new();
@@ -63,22 +58,26 @@ fn find_intersections(
     edges
 }
 
-fn build_graph<F: Fn(&Grid, Pt) -> Vec<Pt, 4> + Copy>(
+fn build_graph<F: Fn(&Grid, Pt) -> Neighbors>(
     grid: &Grid,
     cur: Pt,
     graph: &mut WeightedGraph,
     v: &mut Set,
-    nbrs: F,
+    nbrs: &F,
 ) {
-    let mut edges = Vec::new();
-    for (nbr, dist) in find_intersections(grid, cur, nbrs) {
-        edges.push((nbr, dist)).unwrap();
-        if !v.contains(&nbr) {
-            v.insert(nbr).unwrap();
-            build_graph(grid, nbr, graph, v, nbrs);
+    let mut stack: Vec<Pt, 1024> = Vec::new();
+    stack.push(cur).unwrap();
+    while let Some(cur) = stack.pop() {
+        let mut edges = Vec::new();
+        for (nbr, dist) in find_neighbors(grid, cur, nbrs) {
+            edges.push((nbr, dist)).unwrap();
+            if !v.contains(&nbr) {
+                v.insert(nbr).unwrap();
+                stack.push(nbr).unwrap();
+            }
         }
+        graph.insert(cur, edges).unwrap();
     }
-    graph.insert(cur, edges).unwrap();
 }
 
 fn longest_path_in_graph(graph: &WeightedGraph, cur: Pt, end: Pt, v: &mut Set) -> Option<usize> {
@@ -98,17 +97,26 @@ fn longest_path_in_graph(graph: &WeightedGraph, cur: Pt, end: Pt, v: &mut Set) -
     dists.max()
 }
 
-fn longest_path<F: Fn(&Grid, Pt) -> Vec<Pt, 4> + Copy>(grid: &Grid, nbrs: F) -> usize {
+fn longest_path<F: Fn(&Grid, Pt) -> Neighbors + Copy>(grid: &Grid, nbrs: F) -> usize {
     let start = (0, 1);
     let end = (grid.height as i16 - 1, grid.width as i16 - 2);
     let mut graph = WeightedGraph::new();
-    build_graph(&grid, start, &mut graph, &mut Set::new(), nbrs);
+    build_graph(&grid, start, &mut graph, &mut Set::new(), &nbrs);
     longest_path_in_graph(&graph, start, end, &mut Set::new()).unwrap()
+}
+
+fn passable_adjacents(grid: &Grid, (r, c): Pt) -> Neighbors {
+    [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        .iter()
+        .map(|(dr, dc)| (r + dr, c + dc))
+        .filter(|pt| grid.in_range(*pt))
+        .filter(|pt| matches!(grid.get(*pt), b'.' | b'^' | b'v' | b'<' | b'>'))
+        .collect()
 }
 
 pub fn part1(input: &str) -> usize {
     longest_path(&Grid::from(input), |grid, pt @ (r, c)| match grid.get(pt) {
-        b'.' => passable_adjacent(grid, pt),
+        b'.' => passable_adjacents(grid, pt),
         b'^' => Vec::from_slice(&[(r - 1, c)]).unwrap(),
         b'v' => Vec::from_slice(&[(r + 1, c)]).unwrap(),
         b'<' => Vec::from_slice(&[(r, c - 1)]).unwrap(),
@@ -120,7 +128,7 @@ pub fn part1(input: &str) -> usize {
 pub fn part2(input: &str) -> usize {
     longest_path(&Grid::from(input), |grid, pt| match grid.get(pt) {
         b'#' => Vec::new(),
-        _ => passable_adjacent(grid, pt),
+        _ => passable_adjacents(grid, pt),
     })
 }
 
