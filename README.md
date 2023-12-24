@@ -10,9 +10,11 @@ the rest of the code as modules).
 
 ## prerequisites
 
-sdl2 (for the visualization).
+python3 and z3-solver (for day24part2)
 
-for mac os on apple silicon:
+    python3 -m pip install z3-solver
+
+sdl2 (for the visualization). e.g. for mac os on apple silicon:
 
     brew install sdl2
 
@@ -28,6 +30,11 @@ to run the solution for day N on the input `inputs/dayN.txt`:
 to run day 21:
 
     cargo run --release day21 inputs/day21.txt
+
+to solve day24part2:
+
+    cargo run day24 inputs/day24.txt > day24.py
+    python3 day24.py
 
 to benchmark all solutions:
 
@@ -97,6 +104,7 @@ day22part1              time:   [18.247 ms 18.271 ms 18.310 ms]
 day22part2              time:   [95.162 ms 95.252 ms 95.395 ms]
 day23part1              time:   [1.0737 ms 1.0745 ms 1.0754 ms]
 day23part2              time:   [2.9349 s 2.9474 s 2.9711 s]
+day24part1              time:   [1.1627 ms 1.1694 ms 1.1761 ms]
 ```
 
 see `benches/aoc23bench.rs` for the benchmark definitions.

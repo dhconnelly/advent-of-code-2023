@@ -156,38 +156,32 @@ pub fn part1(input: &str) -> usize {
     count_intersections(&sys, lo, hi, 0, 1)
 }
 
-fn print_sympy(sys: &Systems) {
-    println!("from sympy import *");
-    print!("x0, dx0, x1, dx1, x2, dx2");
-    for i in 0..sys.len() {
-        print!(", t{}", i);
+fn print_python(sys: &Systems) {
+    println!("from z3 import *");
+    for i in 0..3 {
+        println!("x{} = Int('x{}')", i, i);
+        println!("dx{} = Int('dx{}')", i, i);
     }
-    print!(" = symbols('x dx y dy z dz");
     for i in 0..sys.len() {
-        print!(" t{}", i);
+        println!("t{} = Int('t{}')", i, i);
     }
-    println!("')");
-    print!("syms = [x0, dx0, x1, dx1, x2, dx2");
-    for i in 0..sys.len() {
-        print!(", t{}", i);
-    }
-    println!("]");
-    println!("system = [");
+    println!("s = Solver()");
     for (j, line) in sys.iter().enumerate() {
         for i in 0..3 {
             println!(
-                "    Eq(x{} + dx{} * t{}, {} + {} * t{}),",
+                "s.add(x{} + dx{} * t{} == {} + {} * t{})",
                 i, i, j, line.x0[i], line.v0[i], j
             );
         }
     }
-    println!("]");
-    println!("print(nonlinsolve(system, syms))");
+    println!("s.check()");
+    println!("m = s.model()");
+    println!("print(m[x0].as_long() + m[x1].as_long() + m[x2].as_long())");
 }
 
 pub fn part2(input: &str) {
     let sys = parse(input);
-    print_sympy(&sys);
+    print_python(&sys);
 }
 
 #[cfg(test)]
