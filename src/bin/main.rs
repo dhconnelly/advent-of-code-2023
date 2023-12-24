@@ -1,5 +1,5 @@
 use advent_of_code_2023::*;
-use std::fmt::Display;
+use std::fmt::Debug;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -21,9 +21,9 @@ trait Solve {
     fn solve(&self, input: &str);
 }
 
-impl<T: Display + 'static, F: Fn(&str) -> T> Solve for F {
+impl<T: Debug + 'static, F: Fn(&str) -> T> Solve for F {
     fn solve(&self, input: &str) {
-        println!("{}", self(input));
+        println!("{:?}", self(input));
     }
 }
 
@@ -53,6 +53,7 @@ fn solve(day: &str, input: &str) {
         ("day20", Box::new(day20::part1), Box::new(day20::part2)),
         ("day22", Box::new(day22::part1), Box::new(day22::part2)),
         ("day23", Box::new(day23::part1), Box::new(day23::part2)),
+        ("day24", Box::new(day24::part1), Box::new(day24::part2)),
     ];
     let soln = solns
         .iter()

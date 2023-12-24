@@ -1,16 +1,14 @@
-use core::ops::Range;
-
 use heapless::Vec;
 use libc_print::std_name::*;
 
-const DIMS: usize = 3;
 type Systems = Vec<System, 512>;
 type Ratio = (i128, i128);
+type Pt3 = [i128; 3];
 
 #[derive(Debug)]
 struct System {
-    x0: [i128; DIMS],
-    v0: [i128; DIMS],
+    x0: Pt3,
+    v0: Pt3,
 }
 
 impl From<&str> for System {
@@ -33,6 +31,11 @@ fn equivalent((a, b): Ratio, (c, d): Ratio) -> bool {
     }
 }
 
+// determine if the two lines described by |lhs| and |rhs| intersect in the
+// |dim|-dimensional space between [lo,hi] for each coordinate. alternatively,
+// determine if there exist (tl,tr) such that lhs(tl) == rhs(tr) with all
+// coordinates in the range [lo,hi]. If the intersection exists, returns
+// (tl, tr).
 fn intersection_between(
     lhs: &System,
     rhs: &System,
@@ -40,7 +43,7 @@ fn intersection_between(
     hi: i128,
     dim_lo: usize,
     dim_hi: usize,
-) -> bool {
+) -> Option<(Ratio, Ratio)> {
     // solve the following system of |dim| equations in two variables (tl and tr):
     // (xl-xr) = tr * (vxr) + tl * (-vxl)
     // (yl-yr) = tr * (vyr) + tl * (-vyl)
@@ -48,9 +51,14 @@ fn intersection_between(
     // call this:
     // A = tr * B1 + tl * B2 where A is a vector of the left hand sides
     // and B1 and B2 are the vectors scaled by tr and tl respectively.
-    let mut a: Vec<i128, 3> = (dim_lo..=dim_hi).map(|i| lhs.x0[i] - rhs.x0[i]).collect();
-    let mut b1: Vec<i128, 3> = (dim_lo..=dim_hi).map(|i| rhs.v0[i]).collect();
-    let mut b2: Vec<i128, 3> = (dim_lo..=dim_hi).map(|i| -lhs.v0[i]).collect();
+    let mut a = [0; 3];
+    let mut b1 = [0; 3];
+    let mut b2 = [0; 3];
+    for i in dim_lo..=dim_hi {
+        a[i] = lhs.x0[i] - rhs.x0[i];
+        b1[i] = rhs.v0[i];
+        b2[i] = -lhs.v0[i];
+    }
 
     // solve for tl by eliminating tr
     // (xl-xr)*vyr*vzr = tr * (vxr)*vyr*vzr + tl * (-vxl)*vyr*vzr
@@ -73,23 +81,18 @@ fn intersection_between(
     // (xl-xr)*vyr*vzr - (yl-yr)*vxr*vzr = tl * ((-vxl)*vyr*vzr - (-vyl)*vxr*vzr)
     // (xl-xr)*vyr*vzr - (zl-zr)*vxr*vzr = tl * ((-vxl)*vyr*vzr - (-vzl)*vxr*vyr)
     // (yl-yr)*vxr*vzr - (zl-zr)*vxr*vyr = tl * ((-vyl)*vxr*vzr - (-vzl)*vxr*vyr)
-    let mut tl = Vec::<Ratio, 3>::new();
+    let mut tl = None;
     for i in dim_lo..dim_hi {
         for j in i + 1..=dim_hi {
-            let dividend = a[i] - a[j];
-            let divisor = b2[i] - b2[j];
-            tl.push((dividend, divisor)).unwrap();
+            let ratio @ (_dividend, divisor) = (a[i] - a[j], b2[i] - b2[j]);
+            if divisor == 0 || !equivalent(*tl.get_or_insert(ratio), ratio) {
+                return None;
+            }
         }
     }
-    if tl[1..].iter().any(|r| !equivalent(*r, tl[0])) {
-        return false;
-    }
-    let (tl_top, tl_bottom) = tl[0];
-    if tl_bottom == 0 {
-        return false;
-    }
+    let tl @ (tl_top, tl_bottom) = tl.unwrap();
     if tl_bottom.signum() != tl_top.signum() {
-        return false;
+        return None;
     }
 
     // now substitute for tl and solve for tr
@@ -100,53 +103,46 @@ fn intersection_between(
     // ((xl-xr)*vyr*vzr)*tl_bottom = tr * (vxr)*vyr*vzr*tl_bottom + tl_top * (-vxl)*vyr*vzr
     // ((yl-yr)*vxr*vzr)*tl_bottom= tr * (vyr)*vxr*vzr*tl_bottom + tl_top * (-vyl)*vxr*vzr
     // ((zl-zr)*vxr*vyr)*tl_bottom= tr * (vzr)*vxr*vyr*tl_bottom + tl_top * (-vzl)*vxr*vyr
-    let mut tr = Vec::<Ratio, 3>::new();
+    let mut tr = None;
     for i in dim_lo..dim_hi {
-        let dividend = (a[i] * tl_bottom) - (tl_top * b2[i]);
-        let divisor = b1[i] * tl_bottom;
-        tr.push((dividend, divisor)).unwrap();
+        let ratio @ (_dividend, divisor) =
+            ((a[i] * tl_bottom) - (tl_top * b2[i]), b1[i] * tl_bottom);
+        if divisor == 0 || !equivalent(*tr.get_or_insert(ratio), ratio) {
+            return None;
+        }
     }
-    if tr[1..].iter().any(|r| !equivalent(*r, tr[0])) {
-        return false;
-    }
-    let (tr_top, tr_bottom) = tr[0];
-    if tr_bottom == 0 {
-        return false;
-    }
+    let tr @ (tr_top, tr_bottom) = tr.unwrap();
     if tr_bottom.signum() != tr_top.signum() {
-        return false;
-    }
-
-    for i in dim_lo..=dim_hi {
-        let t = tl_top as f64 / tl_bottom as f64;
+        return None;
     }
 
     // substitute and enforce the contraints
     // lo <= xl + (tl_top / tl_bottom) * vxl <= hi
     // lo <= yl + (tl_top / tl_bottom) * vyl <= hi
     // lo <= zl + (tl_top / tl_bottom) * vzl <= hi
-    (dim_lo..=dim_hi).all(|i| {
+    for i in dim_lo..=dim_hi {
         let left = (lo - lhs.x0[i]) * tl_bottom;
         let right = (hi - lhs.x0[i]) * tl_bottom;
         let mid = tl_top * lhs.v0[i];
-        if tl_bottom > 0 {
-            left <= mid && mid <= right
-        } else {
-            left >= mid && mid >= right
+        if tl_bottom > 0 && !(left <= mid && mid <= right) {
+            return None;
+        } else if tl_bottom < 0 && !(left >= mid && mid >= right) {
+            return None;
         }
-    })
+    }
+
+    Some((tl, tr))
 }
 
 fn parse(input: &str) -> Systems {
     input.lines().map(System::from).collect()
 }
 
-fn count_intersections(input: &str, lo: i128, hi: i128, dim_lo: usize, dim_hi: usize) -> usize {
-    let sys = parse(input);
+fn count_intersections(sys: &Systems, lo: i128, hi: i128, dim_lo: usize, dim_hi: usize) -> usize {
     let mut intersections = 0;
     for i in 0..sys.len() - 1 {
         for j in i + 1..sys.len() {
-            if intersection_between(&sys[i], &sys[j], lo, hi, dim_lo, dim_hi) {
+            if intersection_between(&sys[i], &sys[j], lo, hi, dim_lo, dim_hi).is_some() {
                 intersections += 1;
             }
         }
@@ -156,11 +152,42 @@ fn count_intersections(input: &str, lo: i128, hi: i128, dim_lo: usize, dim_hi: u
 
 pub fn part1(input: &str) -> usize {
     let (lo, hi) = (200000000000000, 400000000000000);
-    count_intersections(input, lo, hi, 0, 1)
+    let sys = parse(input);
+    count_intersections(&sys, lo, hi, 0, 1)
 }
 
-pub fn part2(input: &str) -> usize {
-    0
+fn print_sympy(sys: &Systems) {
+    println!("from sympy import *");
+    print!("x0, dx0, x1, dx1, x2, dx2");
+    for i in 0..sys.len() {
+        print!(", t{}", i);
+    }
+    print!(" = symbols('x dx y dy z dz");
+    for i in 0..sys.len() {
+        print!(" t{}", i);
+    }
+    println!("')");
+    print!("syms = [x0, dx0, x1, dx1, x2, dx2");
+    for i in 0..sys.len() {
+        print!(", t{}", i);
+    }
+    println!("]");
+    println!("system = [");
+    for (j, line) in sys.iter().enumerate() {
+        for i in 0..3 {
+            println!(
+                "    Eq(x{} + dx{} * t{}, {} + {} * t{}),",
+                i, i, j, line.x0[i], line.v0[i], j
+            );
+        }
+    }
+    println!("]");
+    println!("print(nonlinsolve(system, syms))");
+}
+
+pub fn part2(input: &str) {
+    let sys = parse(input);
+    print_sympy(&sys);
 }
 
 #[cfg(test)]
@@ -178,13 +205,12 @@ mod test {
 
     #[test]
     fn test_example() {
-        assert_eq!(count_intersections(TEST_INPUT, 7, 27, 0, 1), 2);
-        assert_eq!(part2(TEST_INPUT), 0);
+        let sys = parse(TEST_INPUT);
+        assert_eq!(count_intersections(&sys, 7, 27, 0, 1), 2);
     }
 
     #[test]
     fn test_real() {
         assert_eq!(part1(REAL_INPUT), 15593);
-        assert_eq!(part2(REAL_INPUT), 0);
     }
 }
