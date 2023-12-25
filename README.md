@@ -2,7 +2,11 @@
 
 in rust with `#![no_std]`. no allocations!
 
-(except for day21part2 💀💀💀)
+except for the following :(
+
+- day21part2
+- day24part2
+- day25part1
 
 the binary crate (`src/main.rs`) uses std to get command-line flags and read
 the input. the library crate sets `#![no_std]` in `src/lib.rs` (and pulls in
@@ -35,6 +39,10 @@ to solve day24part2:
 
     cargo run day24 inputs/day24.txt > day24.py
     python3 day24.py
+
+to solve day25:
+
+    python3 src/day25.py inputs/day25.txt
 
 to benchmark all solutions:
 
