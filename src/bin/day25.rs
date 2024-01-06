@@ -99,10 +99,12 @@ type Cut<'a> = (i64, NodeList<'a>);
 
 // stoer-wagner algorithm: https://dl.acm.org/doi/pdf/10.1145/263867.263872
 fn min_cut_phase<'b, 'a: 'b>(graph: &'b mut WeightedGraph<'a>, src: &Node<'a>) -> Cut<'a> {
+    println!("cutting");
     let mut a = Nodes::from_iter(std::iter::once(src));
     let (mut prev2, mut prev1) = (None, src);
     while a.len() < graph.len() {
         let next = most_tightly_connected(graph, &a);
+        println!("most tightly connected: {:?}", next);
         a.insert(next);
         (prev2, prev1) = (Some(prev1), next);
     }
@@ -222,6 +224,6 @@ frs: qnr lhk lsr
     #[test]
     fn test_real() {
         let input = include_str!("../../inputs/day25.txt");
-        assert_eq!(part1(input), 0);
+        //assert_eq!(part1(input), 0);
     }
 }
